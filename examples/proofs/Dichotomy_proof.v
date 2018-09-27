@@ -17,6 +17,25 @@ Require Import Procrastination.Procrastination.
 (* Load the CF definitions. *)
 Require Import Dichotomy_ml.
 
+(* Require Import PolTac.PolTac. *)
+(* Global Transparent Z.mul Z.add Z.sub Z.div. *)
+(* Global Transparent N.mul N.add N.sub N.div. *)
+(* Global Transparent Nat.mul Nat.add Nat.sub Nat.div. *)
+(* Global Transparent Zplus Zmult Zopp. *)
+
+(* Arguments Z.add : simpl nomatch. *)
+(* Arguments Z.mul : simpl nomatch. *)
+(* Arguments Z.opp : simpl nomatch. *)
+
+(* Arguments Z.add : simpl never. *)
+(* Arguments Z.mul : simpl never. *)
+(* Arguments Z.opp : simpl never. *)
+(* Opaque Z.mul. *)
+
+(* Goal (forall a, 2 * a = 0 * a + a * 2). *)
+(*   intros. simpl. let t := eval compute in (2*3) in pose t. pols. auto. *)
+(* Qed. *)
+
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
 
 Lemma bsearch_spec :

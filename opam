@@ -1,0 +1,19 @@
+name: "coq-cfml-bigo"
+opam-version: "1.2"
+maintainer: "armael.gueneau@inria.fr"
+authors: [
+  "Armaël Guéneau <armael.gueneau@inria.fr>"
+  "François Pottier <francois.pottier@inria.fr>"
+]
+homepage: "https://gitlab.inria.fr/agueneau/coq-bigO"
+bug-reports: "https://gitlab.inria.fr/agueneau/coq-bigO/issues"
+license: "LGPL"
+dev-repo: "https://gitlab.inria.fr/agueneau/coq-bigO.git"
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+remove: [make "uninstall"]
+depends: [
+  "coq" {>= "8.6"}
+  "coq-tlc" {>= "20180316"}
+  "coq-cfml" {>= "20180525"}
+]

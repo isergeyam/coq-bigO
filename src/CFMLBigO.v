@@ -869,16 +869,24 @@ Proof.
 Qed.
 
 Ltac xlet_core cont0 cont1 cont2 ::=
-  apply local_erase;
-  match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
-    tryif is_refine_cost_goal then (
+  tryif is_refine_cost_goal then (
+    apply local_erase;
+    match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
       eapply xlet_refine;
-      [ xlocal | intro; xlocal | ]
-    ) else idtac;
-    cont0 tt;
-    split; [ | cont1 x; cont2 tt ];
-    xtag_pre_post
-  end.
+      [ xlocal | intro; xlocal | ];
+      cont0 tt;
+      split; [ | cont1 x; cont2 tt ];
+      xtag_pre_post
+    end
+  ) else (
+    apply local_erase;
+    match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
+      cont0 tt;
+      split; [ | cont1 x; cont2 tt ];
+      xtag_pre_post
+    end
+  ).
+
 
 (* xif ********************************)
 

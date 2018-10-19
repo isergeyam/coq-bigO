@@ -432,6 +432,110 @@ Notation "'spec1' [ X ] E" :=
 
 (** *)
 
+Ltac move_credit_evar_setup tt :=
+  prepare_goal_hpull_himpl tt;
+  apply hpull_start.
+
+Ltac move_credit_evar_cleanup tt :=
+  remove_empty_heaps_left tt.
+
+Lemma move_credit_evar_move : forall H1 H2 H3 c,
+  \$ c \* H2 \* H1 ==> H3 ->
+  H1 \* (\$ c \* H2) ==> H3.
+Proof. intros. hchange H. hsimpl. Qed.
+
+Ltac move_credit_evar_step tt :=
+  match goal with |- ?H1 \* ?HN ==> _ =>
+  lazymatch H1 with
+  | \$ (?c _) => try (is_evar c; fail 1)
+  | \$ ?c => try (is_evar c; fail 1)
+  | _ => idtac
+  end;
+  lazymatch HN with
+  | ?H \* _ =>
+    lazymatch H with
+    | \$ (?c _) =>
+      tryif is_evar c then
+        apply move_credit_evar_move
+      else
+        apply hpull_keep
+    | \$ ?c =>
+      tryif is_evar c then
+        apply move_credit_evar_move
+      else
+        apply hpull_keep
+    | _ \* _ => apply hpull_assoc
+    | _ => apply hpull_keep
+    end
+  | \[] => fail 1
+  | ?H => apply hpull_starify
+  end end.
+
+Ltac move_credit_evar tt :=
+  move_credit_evar_setup tt;
+  (repeat (move_credit_evar_step tt));
+  move_credit_evar_cleanup tt.
+
+Goal forall H1 H2 H3 c1, exists c2,
+  \$ c2 \* H2 \* H1 \* \$c1 ==> H3 ->
+  \$ c1 \* H1 \* \$ c2 \* H2 ==> H3.
+Proof.
+  intros. eexists. introv HH.
+  move_credit_evar tt.
+  apply HH.
+  Unshelve. exact 0.
+Qed.
+
+Goal forall H1 H2 H3 c1, exists f, forall (x:int),
+  \$ f x \* H2 \* H1 \* \$c1 ==> H3 ->
+  \$ c1 \* H1 \* \$ f x \* H2 ==> H3.
+Proof.
+  intros. eexists. introv HH.
+  move_credit_evar tt.
+  apply HH.
+  Unshelve. exact (fun _ => 0).
+Qed.
+
+Goal forall H1 H2 H3 c1 c2,
+  H2 \* \$ c2 \* H1 \* \$c1 ==> H3 ->
+  \$ c1 \* H1 \* \$ c2 \* H2 ==> H3.
+Proof.
+  introv HH.
+  move_credit_evar tt.
+  apply HH.
+Qed.
+
+Ltac spec_move_credit_evar tt :=
+  eapply local_weaken_pre; [
+    xlocal | |
+    move_credit_evar tt; apply pred_incl_refl ].
+
+Goal forall A H1 H2 Q (F: ~~A),
+  is_local F ->
+   exists c,
+  PRE \$ c \* H2 \* H1 POST Q CODE F ->
+  PRE H1 \* \$ c \* H2 POST Q CODE F.
+Proof.
+  intros. eexists. intros HH. spec_move_credit_evar tt.
+  spec_move_credit_evar tt.
+  apply HH.
+  Unshelve. exact 0.
+Qed.
+
+Goal forall A H1 H2 Q (F: ~~A),
+  is_local F ->
+  exists f, forall (x:int),
+  PRE \$ f x \* H2 \* H1 POST Q CODE F ->
+  PRE H1 \* \$ f x \* H2 POST Q CODE F.
+Proof.
+  intros. eexists. intro. intros HH. spec_move_credit_evar tt.
+  spec_move_credit_evar tt.
+  apply HH.
+  Unshelve. exact (fun _ => 0).
+Qed.
+
+(** *)
+
 (* Ugly hack. See https://github.com/coq/coq/issues/6643 *)
 Ltac refine_credits_preprocess_eta :=
   match goal with
@@ -444,9 +548,25 @@ Ltac refine_credits_preprocess_eta :=
     clear x
   end.
 
+Lemma refine_cost_setup_intro_emp :
+  forall A (F: ~~A) cost Q,
+  F (\$ cost \* \[]) Q ->
+  F (\$ cost) Q.
+Proof.
+  introv H. rewrite star_neutral_r in H. auto.
+Qed.
+
 (* Must be called before any tactic that refines the credits evar found in the
    precondition. *)
-Ltac refine_credits_preprocess :=
+(* TODO: Improve is_evar handling *)
+Ltac is_refine_cost_goal :=
+  spec_move_credit_evar tt;
+  match goal with
+    |- _ (\$ ?c) _ => is_evar c; apply refine_cost_setup_intro_emp
+  | |- _ (\$ (?c _)) _ => is_evar c; apply refine_cost_setup_intro_emp
+  | |- _ (\$ ?c \* _) _ => is_evar c; idtac
+  | |- _ (\$ (?c _) \* _) _ => is_evar c; idtac
+  end;
   try refine_credits_preprocess_eta.
 
 (** *)
@@ -462,8 +582,12 @@ Ltac xspec_core_base f :=
         | xspec_app_in_hyps f
         | fail 1 "xspec cannot find specification" ].
 
+(* TODO? S might start with some forall/hypothesis before the specO --
+   turn these into evars/subgoals using
+   refine (fun X => _ (X _)); swap 1 2; [..|clear X; loop...]
+*)
 Ltac spec_of_specO :=
-  match goal with
+  lazymatch goal with
   | |- pack_provide_specO ?S -> _ =>
     intros _; generalize (spec S)
   end.
@@ -472,24 +596,6 @@ Ltac xspec_core f ::=
   xspec_core_base f; try spec_of_specO.
 
 (** *)
-
-Lemma refine_cost_setup_intro_emp :
-  forall A (F: ~~A) cost Q,
-  F (\$ cost \* \[]) Q ->
-  F (\$ cost) Q.
-Proof.
-  introv H. rewrite star_neutral_r in H. auto.
-Qed.
-
-(* TODO: Improve is_evar handling *)
-Ltac is_refine_cost_goal :=
-  match goal with
-    |- _ (\$ ?c) _ => is_evar c; apply refine_cost_setup_intro_emp
-  | |- _ (\$ (?c _)) _ => is_evar c; apply refine_cost_setup_intro_emp
-  | |- _ (\$ ?c \* _) _ => is_evar c; idtac
-  | |- _ (\$ (?c _) \* _) _ => is_evar c; idtac
-  end;
-  refine_credits_preprocess.
 
 (* weaken
 

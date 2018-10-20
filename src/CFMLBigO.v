@@ -692,82 +692,216 @@ Ltac hclean_main tt ::=
 
 (* hsimpl *****************************)
 
-Lemma inst_credits_cost :
-  forall (credits : int) H H' H'',
-  H ==> H' \* H'' ->
-  \$ credits \* H ==> H' \* \$ credits \* H''.
-Proof.
-  introv HH.
-  xchange HH. hsimpl_credits.
-Qed.
+Lemma hsimpl_split_credits_1 : forall (n m : int) H0 HR,
+  \$ n \* \$ m \* H0 ==> HR ->
+  \$ (n + m) \* H0 ==> HR.
+Proof. intros. rewrite credits_split_eq. xchange H. hsimpl. Qed.
 
-Ltac inst_credits_cost cont :=
-  (first [ eapply inst_credits_cost
-         | fail 100 "Evar instantiation failed" ]);
-  cont tt.
+Lemma hsimpl_split_credits_2 : forall (n m : int) H0 H1 HR,
+  H1 \* \$ n \* \$ m \* H0 ==> HR ->
+  H1 \* \$ (n + m) \* H0 ==> HR.
+Proof. intros. rewrite credits_split_eq. xchange H. hsimpl. Qed.
 
-Lemma intro_zero_credits_right : forall H H' H'',
-  H ==> H' \* \$ 0 \* H'' ->
-  H ==> H' \* H''.
-Proof.
-  introv.
-  rewrite credits_zero_eq. rewrite star_neutral_l.
-  auto.
-Qed.
+Lemma hsimpl_split_credits_3 : forall (n m : int) H0 H1 H2 HR,
+  H1 \* H2 \* \$ n \* \$ m \* H0 ==> HR ->
+  H1 \* H2 \* \$ (n + m) \* H0 ==> HR.
+Proof. intros. rewrite credits_split_eq. xchange H. hsimpl. Qed.
 
-Lemma hsimpl_starify_left : forall H H' H'',
-  H ==> \[] \* H' \* H'' ->
-  H ==> H' \* H''.
-Proof.
-  introv. rewrite star_neutral_l. auto.
-Qed.
+Lemma hsimpl_split_credits_4 : forall (n m : int) H0 H1 H2 H3 HR,
+  H1 \* H2 \* H3 \* \$ n \* \$ m \* H0 ==> HR ->
+  H1 \* H2 \* H3 \* \$ (n + m) \* H0 ==> HR.
+Proof. intros. rewrite credits_split_eq. xchange H. hsimpl. Qed.
 
-Lemma hsimpl_assoc_right_1 : forall H H1 H2 H3,
-  H ==> H1 \* H2 \* H3 ->
-  H ==> (H1 \* H2) \* H3.
-Proof. admit. (* ok *) Qed.
+Lemma hsimpl_split_credits_5 : forall (n m : int) H0 H1 H2 H3 H4 HR,
+  H1 \* H2 \* H3 \* H4 \* \$ n \* \$ m \* H0 ==> HR ->
+  H1 \* H2 \* H3 \* H4 \* \$ (n + m) \* H0 ==> HR.
+Proof. intros. rewrite credits_split_eq. xchange H. hsimpl. Qed.
 
-Lemma hsimpl_assoc_right_2 : forall H H1 H2 H3,
-  H ==> H2 \* H1 \* H3 ->
-  H ==> (H1 \* H2) \* H3.
-Proof. admit. Qed.
+Lemma hsimpl_split_credits_6 : forall (n m : int) H0 H1 H2 H3 H4 H5 HR,
+  H1 \* H2 \* H3 \* H4 \* H5 \* \$ n \* \$ m \* H0 ==> HR ->
+  H1 \* H2 \* H3 \* H4 \* H5 \* \$ (n + m) \* H0 ==> HR.
+Proof. intros. rewrite credits_split_eq. xchange H. hsimpl. Qed.
 
-Lemma hsimpl_assoc_right_3 : forall H H1 H2 H3 H4,
-  H ==> H1 \* H2 \* H3 \* H4 ->
-  H ==> (H1 \* H2 \* H3) \* H4.
-Proof. admit. Qed.
+Ltac hsimpl_split_credits :=
+  first [
+      apply hsimpl_split_credits_1
+    | apply hsimpl_split_credits_2
+    | apply hsimpl_split_credits_3
+    | apply hsimpl_split_credits_4
+    | apply hsimpl_split_credits_5
+    | apply hsimpl_split_credits_6
+    ].
 
-Ltac hsimpl_inst_credits_cost_setup tt :=
-  match goal with
-  | |- \$ ?cost ==> _ => is_evar cost; apply hsimpl_start_1
-  | |- \$ ?cost \* _ ==> _ => is_evar cost
-  (* | |- \$ (?cost _) ==> _ => is_evar cost; apply hsimpl_start_1 *)
-  (* | |- \$ (?cost _) \* _ ==> _ => is_evar cost *)
-  (* these cases should not be necessary, because of refine_credits_preprocess? *)
+Ltac hsimpl_split_cancel_credits H HL HS :=
+  lazymatch HS with
+  | context [ \$ _ ] => hsimpl_split_credits
+  | _ => idtac
   end;
-  match goal with
-  | |- _ ==> _ \* \$ _ => apply hsimpl_starify
-  | |- _ ==> \$ _ \* _ => apply hsimpl_starify_left
-  | |- _ ==> _ \* \$ _ \* _ => idtac
-  (* FIXME? *)
-  | |- _ ==> (_ \* \$ _) \* _ => apply hsimpl_assoc_right_1
-  | |- _ ==> (\$ _ \* _) \* _ => apply hsimpl_assoc_right_2
-  | |- _ ==> (_ \* \$ _ \* _) \* _ => apply hsimpl_assoc_right_3
-  (* *)
-  | |- _ ==> _ \* _ => apply intro_zero_credits_right
+  match goal with |- ?HL' ==> _ =>
+    hsimpl_find_same H HL'
   end.
 
-Ltac hsimpl_inst_credits_cost cont :=
-  tryif hsimpl_inst_credits_cost_setup tt then
-    inst_credits_cost cont
-  else
-    cont tt.
+(** *)
+
+Lemma hsimpl_intro_zero_credits_rhs : forall HL HR,
+  HL ==> \$ 0 \* HR ->
+  HL ==> HR.
+Proof.
+  introv HH. hchange HH. rewrite credits_zero_eq. hsimpl.
+Qed.
+
+Ltac hsimpl_intro_zero_credits_rhs_if_needed tt :=
+  match goal with |- ?HL ==> ?HR =>
+    lazymatch HR with
+    | context [ \$ _ ] => idtac
+    | _ => (* The RHS does not contain credits *)
+      try match HL with context [ \$ ?c ] =>
+        is_evar c; apply hsimpl_intro_zero_credits_rhs
+      end
+    end
+  end.
 
 Ltac hsimpl_setup process_credits ::=
   prepare_goal_hpull_himpl tt;
   try (check_arg_true process_credits; credits_join_left_repeat tt);
+  hsimpl_intro_zero_credits_rhs_if_needed tt;
   hsimpl_left_empty tt;
-  hsimpl_inst_credits_cost ltac:(fun _ => apply hsimpl_start).
+  apply hsimpl_start.
+
+Goal forall H1 H2 c1 c2, exists c,
+  \$ c2 \* \$ c1 \* H1 ==> H2 ->
+  \$ c1 \* H1 \* \$ c \* \$ c2 ==> H2.
+Proof.
+  intros. eexists. intro HH.
+  hsimpl. exact HH.
+Qed.
+
+Ltac is_credit_evar H :=
+  match H with \$ ?c => is_evar c end.
+
+Ltac hsimpl_step process_credits ::=
+  match goal with |- ?HL ==> ?HA \* ?HN =>
+  match HN with
+  | ?H \* ?HS =>
+    match H with
+    | ?H => hsimpl_hook H
+    | \[] => apply hsimpl_empty
+    | \[_] => apply hsimpl_prop
+    | heap_is_pack _ => hsimpl_extract_exists tt
+    | _ \* _ => apply hsimpl_assoc
+    | \$ _ =>
+      first
+        [ check_arg_true process_credits;
+          hsimpl_find_credits HL
+        | hsimpl_split_cancel_credits H HL HS ]
+    | heap_is_single _ _ _ => hsimpl_try_same tt
+    | Group _ _ => hsimpl_try_same tt  (* may fail *)
+    | ?H => (* should be check_noevar3 on the next line TODO *)
+       first [ is_evar H; fail 1 | is_credit_evar H; fail 1 | idtac ];
+       hsimpl_find_same H HL (* may fail *)
+    | hdata _ ?l => hsimpl_find_data l HL ltac:(hsimpl_find_data_post) (* may fail *)
+    | ?x ~> Id _ => check_noevar2 x; apply hsimpl_id (* may fail *)
+    | ?x ~> ?T _ => check_noevar2 x;
+                    let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
+                    apply hsimpl_id; [ | reflexivity ]
+                    (* may fail *)
+    | ?x ~> ?T ?X => check_noevar2 x; is_evar T; is_evar X; apply hsimpl_id_unify
+    | _ => apply hsimpl_keep
+    end
+  | \[] => fail 1
+  | _ => apply hsimpl_starify
+  end end.
+
+Goal forall A B a b H1 H2 (H3: A -> B -> hprop) H4 c0 c2 c3, exists c1,
+  \$ c0 \* H2 \* H1 ==> H4 \* H3 a b ->
+  forall c1',
+  c1' = c2 + c3 ->
+  H1 \* \$ c0 \* \$ c1 \* H2 ==> Hexists x y, H3 x y \* \$ c2 \* H4 \* \$ c3
+  /\ c1' = c1.
+Proof.
+  intros. eexists. introv HH. introv Hc'.
+  split. hsimpl.
+  exact HH. exact Hc'.
+Qed.
+
+(** *)
+
+(* Lemma inst_credits_cost : *)
+(*   forall (credits : int) H H' H'', *)
+(*   H ==> H' \* H'' -> *)
+(*   \$ credits \* H ==> H' \* \$ credits \* H''. *)
+(* Proof. *)
+(*   introv HH. *)
+(*   xchange HH. hsimpl_credits. *)
+(* Qed. *)
+
+(* Ltac inst_credits_cost cont := *)
+(*   (first [ eapply inst_credits_cost *)
+(*          | fail 100 "Evar instantiation failed" ]); *)
+(*   cont tt. *)
+
+(* Lemma intro_zero_credits_right : forall H H' H'', *)
+(*   H ==> H' \* \$ 0 \* H'' -> *)
+(*   H ==> H' \* H''. *)
+(* Proof. *)
+(*   introv. *)
+(*   rewrite credits_zero_eq. rewrite star_neutral_l. *)
+(*   auto. *)
+(* Qed. *)
+
+(* Lemma hsimpl_starify_left : forall H H' H'', *)
+(*   H ==> \[] \* H' \* H'' -> *)
+(*   H ==> H' \* H''. *)
+(* Proof. *)
+(*   introv. rewrite star_neutral_l. auto. *)
+(* Qed. *)
+
+(* Lemma hsimpl_assoc_right_1 : forall H H1 H2 H3, *)
+(*   H ==> H1 \* H2 \* H3 -> *)
+(*   H ==> (H1 \* H2) \* H3. *)
+(* Proof. admit. (* ok *) Qed. *)
+
+(* Lemma hsimpl_assoc_right_2 : forall H H1 H2 H3, *)
+(*   H ==> H2 \* H1 \* H3 -> *)
+(*   H ==> (H1 \* H2) \* H3. *)
+(* Proof. admit. Qed. *)
+
+(* Lemma hsimpl_assoc_right_3 : forall H H1 H2 H3 H4, *)
+(*   H ==> H1 \* H2 \* H3 \* H4 -> *)
+(*   H ==> (H1 \* H2 \* H3) \* H4. *)
+(* Proof. admit. Qed. *)
+
+(* Ltac hsimpl_inst_credits_cost_setup tt := *)
+(*   match goal with *)
+(*   | |- \$ ?cost ==> _ => is_evar cost; apply hsimpl_start_1 *)
+(*   | |- \$ ?cost \* _ ==> _ => is_evar cost *)
+(*   (* | |- \$ (?cost _) ==> _ => is_evar cost; apply hsimpl_start_1 *) *)
+(*   (* | |- \$ (?cost _) \* _ ==> _ => is_evar cost *) *)
+(*   (* these cases should not be necessary, because of refine_credits_preprocess? *) *)
+(*   end; *)
+(*   match goal with *)
+(*   | |- _ ==> _ \* \$ _ => apply hsimpl_starify *)
+(*   | |- _ ==> \$ _ \* _ => apply hsimpl_starify_left *)
+(*   | |- _ ==> _ \* \$ _ \* _ => idtac *)
+(*   (* FIXME? *) *)
+(*   | |- _ ==> (_ \* \$ _) \* _ => apply hsimpl_assoc_right_1 *)
+(*   | |- _ ==> (\$ _ \* _) \* _ => apply hsimpl_assoc_right_2 *)
+(*   | |- _ ==> (_ \* \$ _ \* _) \* _ => apply hsimpl_assoc_right_3 *)
+(*   (* *) *)
+(*   | |- _ ==> _ \* _ => apply intro_zero_credits_right *)
+(*   end. *)
+
+(* Ltac hsimpl_inst_credits_cost cont := *)
+(*   tryif hsimpl_inst_credits_cost_setup tt then *)
+(*     inst_credits_cost cont *)
+(*   else *)
+(*     cont tt. *)
+
+(* Ltac hsimpl_setup process_credits ::= *)
+(*   prepare_goal_hpull_himpl tt; *)
+(*   try (check_arg_true process_credits; credits_join_left_repeat tt); *)
+(*   hsimpl_left_empty tt; *)
+(*   hsimpl_inst_credits_cost ltac:(fun _ => apply hsimpl_start). *)
 
 (* xcf ******************************************)
 

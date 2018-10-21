@@ -844,6 +844,26 @@ Proof.
   exact HH. exact Hc'.
 Qed.
 
+Lemma affine_credits_sub : forall c1 c2,
+  c2 <= c1 ->
+  affine (\$ (c1 - c2)).
+Proof.
+  intros. apply affine_credits. math.
+Qed.
+
+Ltac affine_base ::=
+  repeat
+    match goal with
+    | |- affine (_ \* _) => apply affine_star
+    | |- affine \[] => apply affine_empty
+    | |- affine (\$ _) =>
+      first [ apply affine_credits_sub | apply affine_credits];
+      auto with zarith
+    | |- affine (\[_]) => apply affine_empty_st
+    | |- affine \GC => apply affine_gc
+    | |- affine (heap_is_pack _) => apply affine_pack
+    end.
+
 (** *)
 
 (* Lemma inst_credits_cost : *)
@@ -944,7 +964,7 @@ Proof.
   introv L HH.
   xpay_start tt.
   { unfold pay_one. hsimpl_credits. }
-  xapply HH. hsimpl_credits. hsimpl. math.
+  xapply HH. hsimpl_credits. hsimpl.
 Qed.
 
 Ltac xpay_core tt ::=
@@ -1205,7 +1225,7 @@ Lemma cf_max_credits_weaken_l :
     F (\$ c1 \* H) Q ->
     F (\$ Z.max c1 c2 \* H) Q.
 Proof.
-  introv ? HH. xapply HH. hsimpl_credits. hsimpl. math_lia.
+  introv ? HH. xapply HH. hsimpl_credits. hsimpl.
 Qed.
 
 Lemma cf_max_credits_weaken_r :
@@ -1214,7 +1234,7 @@ Lemma cf_max_credits_weaken_r :
     F (\$ c2 \* H) Q ->
     F (\$ Z.max c1 c2 \* H) Q.
 Proof.
-  introv ? HH. xapply HH. hsimpl_credits. hsimpl. math_lia.
+  introv ? HH. xapply HH. hsimpl_credits. hsimpl.
 Qed.
 
 Lemma xcase_refine :

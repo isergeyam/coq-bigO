@@ -174,9 +174,7 @@ Proof.
     let n' := If 0 < n then n else 1 in
     cost bellman_ford2_spec (n', m)).
   { introv Hnodes Hedges. intros; xapply~ (spec bellman_ford2_spec).
-    hsimpl_credits; swap 1 2;
-    (asserts_rewrite (forall (x y : Z), le 0 (x - y) <-> y <= x); [math|..]).
-    apply (cost_monotonic bellman_ford2_spec).
+    hsimpl_credits. apply (cost_monotonic bellman_ford2_spec).
     unfolds ZZle. splits~. cases_if~. cases_if~.
   }
   { eapply monotonic_comp. monotonic.

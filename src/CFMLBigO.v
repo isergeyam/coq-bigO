@@ -630,6 +630,26 @@ Ltac weaken :=
   eapply weaken_credits;
   [ | | xlocal ].
 
+(** *)
+
+(* stop_refine
+
+   The opposite operation of refine: instantiates the evar for the number of
+   credits with 0. *)
+
+Lemma stop_refine_credits :
+  forall A (F: ~~A) H Q,
+  F H Q ->
+  is_local F ->
+  F (\$ 0 \* H) Q.
+Proof.
+  introv HH ?. rewrite credits_zero_eq. xapply~ HH.
+Qed.
+
+Ltac stop_refine :=
+  is_refine_cost_goal;
+  apply stop_refine_credits; [ | xlocal ].
+
 (* cutO *)
 
 Lemma cutO_refine :

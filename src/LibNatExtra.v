@@ -183,7 +183,9 @@ Qed.
 
 (* Avoid undesired simplifications. *)
 (* TEMPORARY [plus] should be opaque too? *)
-Global Opaque mult Nat.div max.
+Global Arguments mult : simpl never.
+Global Arguments Nat.div : simpl never.
+Global Arguments max : simpl never.
 
 (* A tactic to reason about [n/2] in terms of its specification. *)
 

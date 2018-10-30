@@ -6,14 +6,17 @@ Require Import CFML.CFLibCredits.
    and tactics *)
 Require Export Procrastination.Procrastination.
 (* Load the BigO library. *)
-Require Import Dominated.
-Require Import DominatedNary.
-Require Import FilterNary.
-Require Import LibFunOrd.
-Require Import UltimatelyGreater.
-Require Import LibZExtra.
+Require Export Filter.
+Require Export Monotonic.
+Require Export Dominated.
+Require Export LibFunOrd.
+Require Export UltimatelyGreater.
+Require Export LibZExtra.
+Require Export DominatedNary.
+Require Export FilterNary.
+Require Export LimitNary.
+Require Export Generic.
 Require Import TLC.LibIntTactics.
-Require Import Generic.
 
 (********************************************************************)
 

@@ -15,6 +15,10 @@ Ltac omega_rewrite P :=
   let h := fresh in
   assert (h: P); [ intros; omega | rewrite h; clear h ].
 
+(* This is required by ssreflect's rewrite *)
+Instance le_rew : RelationClasses.RewriteRelation le.
+Instance Zle_rew : RelationClasses.RewriteRelation Z.le.
+
 (* Addition is covariant in both arguments. *)
 
 Program Instance proper_plus: Proper (le ++> le ++> le) plus.

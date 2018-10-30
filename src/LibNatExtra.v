@@ -181,12 +181,6 @@ Proof using.
   exists (k - r). omega.
 Qed.
 
-(* Avoid undesired simplifications. *)
-(* TEMPORARY [plus] should be opaque too? *)
-Global Arguments mult : simpl never.
-Global Arguments Nat.div : simpl never.
-Global Arguments max : simpl never.
-
 (* A tactic to reason about [n/2] in terms of its specification. *)
 
 Ltac div2 :=
@@ -196,6 +190,14 @@ Ltac div2 :=
       gen h; generalize (n/2); intros; unpack
     ]
   end.
+
+Section Div.
+
+(* Avoid undesired simplifications. *)
+(* TEMPORARY [plus] should be opaque too? *)
+Arguments mult : simpl never.
+Arguments Nat.div : simpl never.
+Arguments max : simpl never.
 
 (* [./2] is monotonic. *)
 
@@ -319,6 +321,8 @@ Lemma use_lt_div2:
 Proof using.
   intros m n. div2. omega.
 Qed.
+
+End Div.
 
 Hint Resolve prove_lt_div2_zero : positive.
 
@@ -527,6 +531,11 @@ Ltac log2_spec :=
     ]
   end.
 
+Section Log.
+
+Arguments div : simpl never.
+Arguments Nat.mul : simpl never.
+
 (* The above specification is functional, i.e., it defines [log2 n] in a
    unique manner. *)
 
@@ -609,6 +618,8 @@ Proof using.
   do 2 log2_spec.
   eapply power_strictly_inverse_monotonic_in_k_variant with (n := 2); simpl; omega.
 Qed.
+
+End Log.
 
 Hint Resolve log2_monotonic : monotonic typeclass_instances.
 

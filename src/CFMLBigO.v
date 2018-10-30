@@ -866,83 +866,6 @@ Ltac affine_base ::=
 
 (** *)
 
-(* Lemma inst_credits_cost : *)
-(*   forall (credits : int) H H' H'', *)
-(*   H ==> H' \* H'' -> *)
-(*   \$ credits \* H ==> H' \* \$ credits \* H''. *)
-(* Proof. *)
-(*   introv HH. *)
-(*   xchange HH. hsimpl_credits. *)
-(* Qed. *)
-
-(* Ltac inst_credits_cost cont := *)
-(*   (first [ eapply inst_credits_cost *)
-(*          | fail 100 "Evar instantiation failed" ]); *)
-(*   cont tt. *)
-
-(* Lemma intro_zero_credits_right : forall H H' H'', *)
-(*   H ==> H' \* \$ 0 \* H'' -> *)
-(*   H ==> H' \* H''. *)
-(* Proof. *)
-(*   introv. *)
-(*   rewrite credits_zero_eq. rewrite star_neutral_l. *)
-(*   auto. *)
-(* Qed. *)
-
-(* Lemma hsimpl_starify_left : forall H H' H'', *)
-(*   H ==> \[] \* H' \* H'' -> *)
-(*   H ==> H' \* H''. *)
-(* Proof. *)
-(*   introv. rewrite star_neutral_l. auto. *)
-(* Qed. *)
-
-(* Lemma hsimpl_assoc_right_1 : forall H H1 H2 H3, *)
-(*   H ==> H1 \* H2 \* H3 -> *)
-(*   H ==> (H1 \* H2) \* H3. *)
-(* Proof. admit. (* ok *) Qed. *)
-
-(* Lemma hsimpl_assoc_right_2 : forall H H1 H2 H3, *)
-(*   H ==> H2 \* H1 \* H3 -> *)
-(*   H ==> (H1 \* H2) \* H3. *)
-(* Proof. admit. Qed. *)
-
-(* Lemma hsimpl_assoc_right_3 : forall H H1 H2 H3 H4, *)
-(*   H ==> H1 \* H2 \* H3 \* H4 -> *)
-(*   H ==> (H1 \* H2 \* H3) \* H4. *)
-(* Proof. admit. Qed. *)
-
-(* Ltac hsimpl_inst_credits_cost_setup tt := *)
-(*   match goal with *)
-(*   | |- \$ ?cost ==> _ => is_evar cost; apply hsimpl_start_1 *)
-(*   | |- \$ ?cost \* _ ==> _ => is_evar cost *)
-(*   (* | |- \$ (?cost _) ==> _ => is_evar cost; apply hsimpl_start_1 *) *)
-(*   (* | |- \$ (?cost _) \* _ ==> _ => is_evar cost *) *)
-(*   (* these cases should not be necessary, because of refine_credits_preprocess? *) *)
-(*   end; *)
-(*   match goal with *)
-(*   | |- _ ==> _ \* \$ _ => apply hsimpl_starify *)
-(*   | |- _ ==> \$ _ \* _ => apply hsimpl_starify_left *)
-(*   | |- _ ==> _ \* \$ _ \* _ => idtac *)
-(*   (* FIXME? *) *)
-(*   | |- _ ==> (_ \* \$ _) \* _ => apply hsimpl_assoc_right_1 *)
-(*   | |- _ ==> (\$ _ \* _) \* _ => apply hsimpl_assoc_right_2 *)
-(*   | |- _ ==> (_ \* \$ _ \* _) \* _ => apply hsimpl_assoc_right_3 *)
-(*   (* *) *)
-(*   | |- _ ==> _ \* _ => apply intro_zero_credits_right *)
-(*   end. *)
-
-(* Ltac hsimpl_inst_credits_cost cont := *)
-(*   tryif hsimpl_inst_credits_cost_setup tt then *)
-(*     inst_credits_cost cont *)
-(*   else *)
-(*     cont tt. *)
-
-(* Ltac hsimpl_setup process_credits ::= *)
-(*   prepare_goal_hpull_himpl tt; *)
-(*   try (check_arg_true process_credits; credits_join_left_repeat tt); *)
-(*   hsimpl_left_empty tt; *)
-(*   hsimpl_inst_credits_cost ltac:(fun _ => apply hsimpl_start). *)
-
 (* xcf ******************************************)
 
 (* This is to ensure that credits are put at the head of the precondition. *)
@@ -972,6 +895,47 @@ Ltac xpay_core tt ::=
     (eapply xpay_refine; [ xlocal | ])
   else
     (xpay_start tt; [ unfold pay_one; hsimpl | ]).
+
+(* xapply *****************************)
+
+Lemma local_frame_with_credits : forall B H1 H2 (Q1: B->hprop) (F:~~B) H Q c1 c2,
+  is_local F ->
+  F H1 Q1 ->
+  \$ c1 \* H ==> H1 \* H2 ->
+  Q1 \*+ (\$ c2 \* H2) ===> Q ->
+  F (\$ (c1 + c2) \* H) Q.
+Proof.
+  introv L F1 HI1 HI2.
+  rewrite credits_split_eq.
+  xapply F1. xchange HI1. hsimpl. xchange HI2. hsimpl.
+Qed.
+
+Ltac cfml_postcondition_contains_credits tt :=
+  let Q := cfml_get_postcondition tt in
+  lazymatch Q with
+  | context [ \$ _ ] => constr:(true : bool)
+  | _ => constr:(false : bool)
+  end.
+
+Ltac xapply_core H cont1 cont2 ::=
+  tryif is_refine_cost_goal then
+    forwards_nounfold_then H ltac:(fun K =>
+      match cfml_postcondition_is_evar tt with
+      | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try xok ]
+      | false =>
+        match cfml_postcondition_contains_credits tt with
+        | true =>
+          eapply local_frame_with_credits; [ xlocal | sapply K | cont1 tt | cont2 tt ]
+        | false =>
+          eapply local_frame_gc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
+        end
+      end)
+  else
+    forwards_nounfold_then H ltac:(fun K =>
+    match cfml_postcondition_is_evar tt with
+    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try xok ]
+    | false => eapply local_frame_gc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
+    end).
 
 (* xret *******************************)
 

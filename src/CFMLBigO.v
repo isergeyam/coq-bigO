@@ -972,14 +972,10 @@ Proof.
 Qed.
 
 Ltac xpay_refine_core HGCE :=
-  eapply xpay_refine; [
-    xlocal
-  | apply HGCE
-  | reflexivity
-  | ].
+  eapply xpay_refine; [ xlocal | apply HGCE | reflexivity | xtag_pre_post ].
 
 Ltac standard_xpay tt :=
-  (xpay_start tt; [ unfold pay_one; hsimpl | ]).
+  (xpay_start tt; [ unfold pay_one; hsimpl | xtag_pre_post ]).
 
 Ltac xpay_core tt ::=
   tryif_refine_cost_goal
@@ -1093,43 +1089,47 @@ Ltac xseq_core cont0 cont1 ::=
 
 Lemma xlet_refine :
   forall
-    (A B : Type) cost1 cost2
+    (A B : Type) cost cost1 cost2
     (F1 : hprop -> (A -> hprop) -> Prop)
     (F2 : A -> hprop -> (B -> hprop) -> Prop)
-    (H : hprop) (Q : B -> hprop),
+    (H H' : hprop) (Q : B -> hprop),
+  GetCreditsEvar H H' cost ->
+  cost = cost1 + cost2 ->
   is_local F1 ->
   (forall x, is_local (F2 x)) ->
   (exists (Q' : A -> hprop),
-    F1 (\$ cost1 \* H) Q' /\
+    F1 (\$ cost1 \* H') Q' /\
     (forall r, F2 r (\$ cost2 \* Q' r) Q)) ->
-  cf_let F1 F2 (\$ (cost1 + cost2) \* H) Q.
+  cf_let F1 F2 H Q.
 Proof.
-  introv L1 L2 (Q' & H1 & H2).
+  introv -> -> L1 L2 (Q' & H1 & H2).
   unfold cf_let.
   eexists. split.
   { xapply H1. credits_split. hsimpl. }
   { intro r. specializes L2 r. xapply H2; hsimpl. }
 Qed.
 
-Ltac xlet_core cont0 cont1 cont2 ::=
-  tryif is_refine_cost_goal then (
-    apply local_erase;
-    match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
-      eapply xlet_refine;
-      [ xlocal | intro; xlocal | ];
-      cont0 tt;
-      split; [ | cont1 x; cont2 tt ];
-      xtag_pre_post
-    end
-  ) else (
-    apply local_erase;
-    match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
-      cont0 tt;
-      split; [ | cont1 x; cont2 tt ];
-      xtag_pre_post
-    end
-  ).
+Ltac xlet_refine_core cont0 cont1 cont2 HGCE :=
+  apply local_erase;
+  match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
+    eapply xlet_refine; [ apply HGCE | reflexivity | xlocal | intro; xlocal | ];
+    cont0 tt;
+    split; [ | cont1 x; cont2 tt ];
+    xtag_pre_post
+  end.
 
+Ltac xlet_standard_core cont0 cont1 cont2 tt :=
+  apply local_erase;
+  match goal with |- cf_let ?F1 (fun x => _) ?H ?Q =>
+    cont0 tt;
+    split; [ | cont1 x; cont2 tt ];
+    xtag_pre_post
+  end.
+
+Ltac xlet_core cont0 cont1 cont2 ::=
+  tryif_refine_cost_goal
+    ltac:(xlet_refine_core cont0 cont1 cont2)
+    ltac:(xlet_standard_core cont0 cont1 cont2).
 
 (* xif ********************************)
 

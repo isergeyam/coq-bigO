@@ -1332,12 +1332,15 @@ Proof.
 Qed.
 
 Lemma xcase_refine :
-  forall (B:Type) (Case1 Case2: ~~B) c1 c2 H (Q: B -> hprop),
-    (Case1 (\$ (Z.max c1 c2) \* H) Q) ->
-    (Case2 (\$ (Z.max c1 c2) \* H) Q) ->
-    (tag tag_case (local (fun H Q => Case1 H Q /\ Case2 H Q))) (\$ (Z.max c1 c2) \* H) Q.
+  forall (B:Type) (Case1 Case2: ~~B) c c1 c2 H H' (Q: B -> hprop),
+    GetCreditsEvar H H' c ->
+    c = Z.max c1 c2 ->
+    (Case1 (\$ c \* H') Q) ->
+    (Case2 (\$ c \* H') Q) ->
+    (tag tag_case (local (fun H Q => Case1 H Q /\ Case2 H Q))) H Q.
 Proof.
-  introv HT HF. unfold tag. apply local_erase. auto.
+  introv -> -> HT HF. unfold tag. apply local_erase.
+  now rewrite star_comm.
 Qed.
 
 Ltac xcase_refine_sidecondition_1 :=
@@ -1347,35 +1350,37 @@ Ltac xcase_refine_sidecondition_2 :=
   eapply cf_max_credits_weaken_r; [ xlocal |].
 
 Ltac xcase_core H cont1 cont2 ::=
-  tryif is_refine_cost_goal then (
-    eapply xcase_refine; [
-      introv H; xcase_refine_sidecondition_1; cont1 tt
-    | introv H; xcase_refine_sidecondition_2; xtag_negpat H; cont2 tt ];
-    xtag_pre_post
-  ) else (
-    (* original CFML implementation *)
-    xuntag tag_case; apply local_erase; split;
-    [ introv H; cont1 tt
-    | introv H; xtag_negpat H; cont2 tt ];
-    xtag_pre_post
-  ).
+  tryif_refine_cost_goal
+    ltac:(fun HGCE =>
+      eapply xcase_refine; [
+        apply HGCE | reflexivity
+      | introv H; xcase_refine_sidecondition_1; cont1 tt
+      | introv H; xcase_refine_sidecondition_2; xtag_negpat H; cont2 tt ];
+      xtag_pre_post)
+    ltac:(fun tt =>
+      (* original CFML implementation *)
+      xuntag tag_case; apply local_erase; split;
+      [ introv H; cont1 tt
+      | introv H; xtag_negpat H; cont2 tt ];
+      xtag_pre_post).
 
 Ltac xcase_no_intros_core cont1 cont2 ::=
-  tryif is_refine_cost_goal then (
-    eapply xcase_refine; [
-      pose ltac_mark; introv ?; xcase_refine_sidecondition_1; gen_until_mark;
-      cont1 tt
-    | pose ltac_mark; introv ?; xcase_refine_sidecondition_2; gen_until_mark;
-      cont2 tt
-    ];
-    xtag_pre_post
-  ) else (
-    (* original CFML implementation *)
-    xuntag tag_case; apply local_erase; split;
-    [ cont1 tt
-    | cont2 tt ];
-    xtag_pre_post
-  ).
+  tryif_refine_cost_goal
+    ltac:(fun HGCE =>
+      eapply xcase_refine; [
+        apply HGCE | reflexivity
+      | pose ltac_mark; introv ?; xcase_refine_sidecondition_1; gen_until_mark;
+        cont1 tt
+      | pose ltac_mark; introv ?; xcase_refine_sidecondition_2; gen_until_mark;
+        cont2 tt
+      ];
+      xtag_pre_post)
+    ltac:(fun tt =>
+      (* original CFML implementation *)
+      xuntag tag_case; apply local_erase; split;
+      [ cont1 tt
+      | cont2 tt ];
+      xtag_pre_post).
 
 Ltac xcase_post_cfml H :=
   (* original CFML implementation *)
@@ -1385,12 +1390,14 @@ Ltac xcase_post_cfml H :=
 (* Use backtracking to instantiate the goal with zero credits only if we manage
    to prove it afterwards *)
 Ltac xcase_post H ::=
-  tryif is_refine_cost_goal then (
-    first [ apply refine_zero_credits; solve [ xcase_post_cfml H ]
-          | xcase_post_cfml H ]
-  ) else (
-    xcase_post_cfml H
-  ).
+  tryif_refine_cost_goal
+    ltac:(fun HGCE =>
+      first [
+        eapply refine_zero_credits'; [ apply HGCE | reflexivity ];
+        solve [ xcase_post_cfml H ]
+      | xcase_post_cfml H ])
+    ltac:(fun tt =>
+      xcase_post_cfml H).
 
 (* xfail ****************************************)
 

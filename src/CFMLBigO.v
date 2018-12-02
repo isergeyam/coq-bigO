@@ -1169,27 +1169,31 @@ Ltac xif_base cont1 cont2 ::=
 
 (* xif_guard: prototype *)
 
-Lemma xif_guard_refine : forall (A: Type) cost1 cost2 (cond cond': bool) (F1 F2: ~~A) H Q,
+Lemma xif_guard_refine :
+  forall (A: Type) cost cost1 cost2 (cond cond': bool) (F1 F2: ~~A) H H' Q,
+  GetCreditsEvar H H' cost ->
+  (cost = If cond' then cost1 else cost2) ->
   (cond = cond') ->
   is_local F1 ->
   is_local F2 ->
-  ((cond = true -> F1 (\$ cost1 \* H) Q) /\
-   (cond = false -> F2 (\$ cost2 \* H) Q)) ->
-  (If_ cond Then F1 Else F2) (\$ (If cond' then cost1 else cost2) \* H) Q.
+  ((cond = true -> F1 (\$ cost1 \* H') Q) /\
+   (cond = false -> F2 (\$ cost2 \* H') Q)) ->
+  (If_ cond Then F1 Else F2) H Q.
 Proof.
-  introv costE L1 L2 (H1 & H2).
+  introv -> -> costE L1 L2 (H1 & H2).
   apply local_erase. rewrite costE.
   split; intro C; rewrite C; cases_if; [xapply~ H1 | xapply~ H2].
 Qed.
 
-Ltac xif_guard_base cont :=
-  is_refine_cost_goal;
+Ltac xif_guard_refine_core cont HGCE :=
   eapply xif_guard_refine;
-  [ try reflexivity | xlocal | xlocal | ];
-  split; cont tt; xtag_pre_post.
+  [ apply HGCE | reflexivity | try reflexivity | xlocal | xlocal | ];
+  [ .. | split; cont tt; xtag_pre_post ].
 
 Ltac xif_guard_core H :=
-  xif_guard_base ltac:(fun _ => intro H; xif_post H).
+  tryif_refine_cost_goal
+    ltac:(xif_guard_refine_core ltac:(fun _ => intro H; xif_post H))
+    ltac:(fun tt => fail 100 "No credit evar found").
 
 Tactic Notation "xif_guard" "as" ident(H) :=
   xif_guard_core H.

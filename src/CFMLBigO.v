@@ -17,6 +17,7 @@ Require Export FilterNary.
 Require Export LimitNary.
 Require Export Generic.
 Require Import TLC.LibIntTactics.
+Require Import HeapTactics.
 
 (********************************************************************)
 
@@ -598,7 +599,47 @@ Ltac spec_of_specO :=
 Ltac xspec_core f ::=
   xspec_core_base f; try spec_of_specO.
 
-(** *)
+(* weaken **************)
+
+Inductive weaken_arg :=
+| Auto : weaken_arg
+| Expr : int -> weaken_arg.
+
+Class HasSingleCreditsExpr (h h' : hprop) (c : int) :=
+  MkHasSingleCreditsExpr : h = h' \* \$ c.
+
+Lemma HasSingleCreditsExpr_of_GetCredits: forall h h' cs c,
+  GetCredits h h' cs ->
+  cs = c :: nil ->
+  HasSingleCreditsExpr h h' c.
+Proof.
+  intros. unfold GetCredits, HasSingleCreditsExpr in *.
+  subst. now rewrite credits_list_cons, credits_list_nil, star_neutral_r.
+Qed.
+
+(* FUTURE: could that be expressed as a "Hint Committed" in the future?
+   (when these get implemented). *)
+Hint Extern 0 (HasSingleCreditsExpr ?h ?h' ?c) =>
+  (eapply HasSingleCreditsExpr_of_GetCredits;
+   [ once (typeclasses eauto) | reflexivity ]) : typeclass_instances.
+
+Class WeakenFindArg (h1 : hprop) (arg : weaken_arg) (h2 : hprop) (c : int) :=
+  MkWeakenFindArg : GetCreditsExpr h1 c h2.
+
+Instance WeakenFindArg_auto_unique: forall h h' c,
+  HasSingleCreditsExpr h h' c ->
+  WeakenFindArg h Auto h' c.
+Proof. now unfold HasSingleCreditsExpr, GetCreditsExpr. Qed.
+
+Instance WeakenFindArg_auto_evar: forall h h' c,
+  GetCreditsExpr h c h' ->
+  WeakenFindArg h Auto h' c.
+Proof. now unfold GetCreditsExpr. Qed.
+
+Instance WeakenFindArg_expr: forall h h' c,
+  GetCreditsExpr h c h' ->
+  WeakenFindArg h (Expr c) h' c.
+Proof. now unfold GetCreditsExpr. Qed.
 
 (* weaken
 
@@ -612,26 +653,27 @@ Ltac xspec_core f ::=
    introduces a new evar in the local context, plus a subgoal where the user can
    explain how to instantiate the evar with the restricted context.
 *)
-Lemma weaken_credits :
-  forall A (cost_weakened cost : int) (F: ~~A) H Q,
-  F (\$ cost_weakened \* H) Q ->
+Lemma weaken_credits arg :
+  forall A (cost_weakened cost : int) (F: ~~A) H H' Q,
+  WeakenFindArg H arg H' cost ->
+  F (\$ cost_weakened \* H') Q ->
   (cost_weakened <= cost) ->
   is_local F ->
-  F (\$ cost \* H) Q.
+  F H Q.
 Proof.
-  introv HH Hcost L.
+  introv HArg HH Hcost L.
+  unfold WeakenFindArg, GetCreditsExpr in *. subst.
   xapply HH.
   { hsimpl_credits. }
   { hsimpl. math. }
 Qed.
 
-Ltac weaken :=
-  match goal with
-    |- _ (\$ _) _ => apply refine_cost_setup_intro_emp
-  | |- _ (\$ _ \* _) _ => idtac
-  end;
-  eapply weaken_credits;
-  [ | | xlocal ].
+Ltac weaken_core arg :=
+  eapply (@weaken_credits arg);
+  [ once (typeclasses eauto) | | | xlocal ].
+
+Tactic Notation "weaken" := weaken_core Auto.
+Tactic Notation "weaken" uconstr(arg) := weaken_core (Expr arg).
 
 (** *)
 

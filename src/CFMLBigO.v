@@ -1203,18 +1203,22 @@ Tactic Notation "xif_guard" :=
 (* xguard ***************************************)
 
 Lemma xguard_refine :
-  forall A (cost : int) (F: ~~A) (G: Prop) H Q,
+  forall A (cost cost' : int) (F: ~~A) (G: Prop) H H' Q,
+  GetCreditsEvar H H' cost ->
+  (cost = If G then cost' else 0) ->
   G ->
-  F (\$ cost \* H) Q ->
-  F (\$ (If G then cost else 0) \* H) Q.
+  F (\$ cost' \* H') Q ->
+  F H Q.
 Proof.
-  introv HG HH. cases_if. trivial.
+  introv -> -> HG HH. cases_if. now rewrite star_comm.
 Qed.
 
 Ltac xguard G :=
-  is_refine_cost_goal;
-  eapply xguard_refine;
-  [ eexact G | ].
+  tryif_refine_cost_goal
+    ltac:(fun HGCE =>
+      eapply xguard_refine; [ apply HGCE | reflexivity | eexact G | ])
+    ltac:(fun tt =>
+      fail 100 "No credit evar found").
 
 (* xfor *****************************************)
 

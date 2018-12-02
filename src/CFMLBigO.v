@@ -1133,30 +1133,32 @@ Ltac xlet_core cont0 cont1 cont2 ::=
 
 (* xif ********************************)
 
-Lemma xif_refine : forall (A: Type) cost1 cost2 cond (F1 F2: ~~A) H Q,
+Lemma xif_refine : forall (A: Type) cost cost1 cost2 cond (F1 F2: ~~A) H H' Q,
+  GetCreditsEvar H H' cost ->
+  cost = Z.max cost1 cost2 ->
   is_local F1 ->
   is_local F2 ->
-  ((cond = true -> F1 (\$ cost1 \* H) Q) /\
-   (cond = false -> F2 (\$ cost2 \* H) Q)) ->
-  (If_ cond Then F1 Else F2) (\$ (Z.max cost1 cost2) \* H) Q.
+  ((cond = true -> F1 (\$ cost1 \* H') Q) /\
+   (cond = false -> F2 (\$ cost2 \* H') Q)) ->
+  (If_ cond Then F1 Else F2) H Q.
 Proof.
-  introv L1 L2 (H1 & H2).
+  introv -> -> L1 L2 (H1 & H2).
   apply local_erase.
   split; intro; [xapply~ H1 | xapply~ H2]; hsimpl_credits;
   math_lia.
 Qed.
 
+Ltac xif_refine_core HGCE :=
+  eapply xif_refine; [ apply HGCE | reflexivity | xlocal | xlocal | ].
+
+Ltac xif_standard_core tt :=
+  xuntag tag_if; apply local_erase.
+
 Ltac xif_base cont1 cont2 ::=
   xpull_check_not_needed tt;
   xif_check_post_instantiated tt;
   let cont tt :=
-    tryif is_refine_cost_goal then (
-      eapply xif_refine;
-      [ xlocal | xlocal | ]
-    ) else (
-      xuntag tag_if;
-      apply local_erase
-    );
+    tryif_refine_cost_goal xif_refine_core xif_standard_core;
     split; [ cont1 tt | cont2 tt ];
     xtag_pre_post
   in

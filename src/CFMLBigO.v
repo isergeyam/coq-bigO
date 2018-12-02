@@ -689,8 +689,7 @@ Lemma weaken_credits arg :
   is_local F ->
   F H Q.
 Proof.
-  introv HArg HH Hcost L.
-  unfold WeakenFindArg, GetCreditsExpr in *. subst.
+  introv -> HH Hcost L.
   xapply HH.
   { hsimpl_credits. }
   { hsimpl. math. }
@@ -1062,25 +1061,30 @@ Ltac xret_no_gc_core tt ::=
 (* xseq *******************************)
 
 Lemma xseq_refine :
-  forall (A : Type) cost1 cost2 F1 F2 H (Q : A -> hprop),
+  forall (A : Type) cost cost1 cost2 F1 F2 H H' (Q : A -> hprop),
+  GetCreditsEvar H H' cost ->
+  cost = cost1 + cost2 ->
   is_local F1 ->
   is_local F2 ->
   (exists Q',
-    F1 (\$ cost1 \* H) Q' /\
+    F1 (\$ cost1 \* H') Q' /\
     F2 (\$ cost2 \* Q' tt) Q) ->
-  (F1 ;; F2) (\$ (cost1 + cost2) \* H) Q.
+  (F1 ;; F2) H Q.
 Proof.
-  introv L1 L2 (Q' & H1 & H2).
+  introv -> -> L1 L2 (Q' & H1 & H2).
   xseq_pre tt. apply local_erase. eexists. split.
   { xapply H1. credits_split. hsimpl. }
   { xapply H2. hsimpl. hsimpl. }
 Qed.
 
+Ltac xseq_refine_core HGCE :=
+  eapply xseq_refine; [ apply HGCE | reflexivity | xlocal | xlocal | ].
+
+Ltac xseq_standard_core tt :=
+  apply local_erase.
+
 Ltac xseq_core cont0 cont1 ::=
-  (tryif is_refine_cost_goal then
-     eapply xseq_refine; [ xlocal | xlocal | ]
-   else
-     apply local_erase);
+  (tryif_refine_cost_goal xseq_refine_core xseq_standard_core);
   cont0 tt;
   split; [ | cont1 tt ];
   xtag_pre_post.

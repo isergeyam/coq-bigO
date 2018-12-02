@@ -575,6 +575,34 @@ Ltac is_refine_cost_goal :=
 
 (** *)
 
+Class GetCreditsEvar (h h' : hprop) (c : int) :=
+  MkGetCreditsEvar : h = h' \* \$ c.
+
+Instance GetCreditsEvar_inst : forall h h' h'' c,
+  HeapPreprocessCredits h h' ->
+  GetCreditsExpr h' c h'' ->
+  GetCreditsEvar h h'' c.
+Proof.
+  intros. unfold HeapPreprocessCredits, GetCreditsExpr, GetCreditsEvar in *.
+  now subst.
+Qed.
+
+(** *)
+
+Ltac tryif_refine_cost_goal ifyes ifno :=
+  first [
+    match goal with |- _ ?pre _ =>
+      let H := fresh "HGCE" in
+      eassert (GetCreditsEvar pre _ _) as H;
+      [ once (typeclasses eauto) | ];
+      once (ifyes H);
+      clear H
+    end
+  | once (ifno tt)
+  ].
+
+(** *)
+
 (* Custom xspec to fetch specO specifications *)
 
 (* FIXME: copy-pasted from CFML *)
@@ -683,17 +711,24 @@ Tactic Notation "weaken" uconstr(arg) := weaken_core (Expr arg).
    credits with 0. *)
 
 Lemma stop_refine_credits :
-  forall A (F: ~~A) H Q,
-  F H Q ->
+  forall A (F: ~~A) c H H' Q,
+  GetCreditsEvar H H' c ->
+  c = 0 ->
+  F H' Q ->
   is_local F ->
-  F (\$ 0 \* H) Q.
+  F H Q.
 Proof.
-  introv HH ?. rewrite credits_zero_eq. xapply~ HH.
+  introv ? ? HH ?.
+  unfold Unify, GetCreditsEvar in *. subst.
+  rewrite credits_zero_eq. xapply~ HH.
 Qed.
 
 Ltac stop_refine :=
-  is_refine_cost_goal;
-  apply stop_refine_credits; [ | xlocal ].
+  eapply stop_refine_credits; [
+    once (typeclasses eauto)
+  | reflexivity
+  |
+  | xlocal ].
 
 (* cutO *)
 
@@ -923,23 +958,34 @@ Ltac xcf_post tt ::=
 (* xpay *****************************************)
 
 Lemma xpay_refine :
-  forall A (cost : Z)
-         (F: hprop -> (A -> hprop) -> Prop) H Q,
+  forall A (F: hprop -> (A -> hprop) -> Prop),
+  forall cost cost' H H' Q,
   is_local F ->
-  F (\$ cost \* H) Q ->
-  (Pay_ ;; F) (\$ (1 + cost) \* H) Q.
+  GetCreditsEvar H H' cost ->
+  cost = 1 + cost' ->
+  F (\$ cost' \* H') Q ->
+  (Pay_ ;; F) H Q.
 Proof.
-  introv L HH.
+  introv L -> -> HH.
   xpay_start tt.
   { unfold pay_one. hsimpl_credits. }
   xapply HH. hsimpl_credits. hsimpl.
 Qed.
 
+Ltac xpay_refine_core HGCE :=
+  eapply xpay_refine; [
+    xlocal
+  | apply HGCE
+  | reflexivity
+  | ].
+
+Ltac standard_xpay tt :=
+  (xpay_start tt; [ unfold pay_one; hsimpl | ]).
+
 Ltac xpay_core tt ::=
-  tryif is_refine_cost_goal then
-    (eapply xpay_refine; [ xlocal | ])
-  else
-    (xpay_start tt; [ unfold pay_one; hsimpl | ]).
+  tryif_refine_cost_goal
+    xpay_refine_core
+    standard_xpay.
 
 (* xapply *****************************)
 
@@ -988,18 +1034,28 @@ Lemma refine_zero_credits : forall A (F:~~A) H (Q : A -> hprop),
   local F H Q ->
   local F (\$ 0 \* H) Q.
 Proof.
-  introv HH.
-  rewrite credits_zero_eq. rewrite star_neutral_l.
-  assumption.
+  introv HH. now rewrite credits_zero_eq, star_neutral_l.
 Qed.
 
+Lemma refine_zero_credits' : forall A (F:~~A) H H' c (Q : A -> hprop),
+  GetCreditsEvar H H' c ->
+  c = 0 ->
+  local F H' Q ->
+  local F H Q.
+Proof.
+  introv -> -> HH. now rewrite credits_zero_eq, star_neutral_r.
+Qed.
+
+Ltac refine_zero_credits HGCE :=
+  eapply refine_zero_credits'; [ apply HGCE | reflexivity | ].
+
 Ltac xret_apply_lemma tt ::=
-  (tryif is_refine_cost_goal then apply refine_zero_credits else idtac);
+  (tryif_refine_cost_goal ltac:(refine_zero_credits) ltac:(fun _ => idtac));
   first [ apply xret_lemma_unify
         | apply xret_lemma ].
 
 Ltac xret_no_gc_core tt ::=
-  (tryif is_refine_cost_goal then apply refine_zero_credits else idtac);
+  (tryif_refine_cost_goal ltac:(refine_zero_credits) ltac:(fun _ => idtac));
   first [ apply xret_lemma_unify
         | eapply xret_no_gc_lemma ].
 

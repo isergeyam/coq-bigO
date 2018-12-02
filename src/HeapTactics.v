@@ -46,7 +46,7 @@ Hint Extern 0 (CreditsPreprocessEta (?c1 _) ?c2) =>
    unshelve instantiate (1 := _) in (Value of cf);
    [ refine (fun _ => _); shelve | hnf ];
    clear cf;
-   reflexivity) : typeclasses_instances.
+   reflexivity) : typeclass_instances.
 
 Instance CreditsPreprocessEta_default: forall c,
   CreditsPreprocessEta c c | 100.

@@ -1404,7 +1404,10 @@ Ltac xcase_post H ::=
 Ltac xfail_core tt ::=
   xpull_check_not_needed tt;
   xuntag tag_fail;
-  (tryif is_refine_cost_goal then apply refine_zero_credits else idtac);
+  (tryif_refine_cost_goal
+     ltac:(fun HGCE =>
+       eapply refine_zero_credits'; [ apply HGCE | reflexivity ])
+     ltac:(fun tt => idtac));
   apply local_erase;
   xtag_pre_post.
 

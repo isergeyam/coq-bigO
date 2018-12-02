@@ -1226,14 +1226,16 @@ Ltac xguard G :=
 Lemma xfor_inv_lemma_pred_refine :
   forall
     (I : int -> hprop)
-    (cost_body : int -> int)
-    (a : int) (b : int) (F : int-> ~~unit) H H',
+    cost (cost_body : int -> int)
+    (a : int) (b : int) (F : int-> ~~unit) H H1 H',
+  GetCreditsEvar H H1 cost ->
+  cost = cumul a b cost_body ->
   (a <= b) ->
   (forall i, a <= i < b -> F i (\$ (cost_body i) \* I i) (# I(i+1))) ->
-  (H ==> I a \* H') ->
+  (H1 ==> I a \* H') ->
   (forall i, is_local (F i)) ->
   (For i = a To (b - 1) Do F i Done_)
-    (\$ (cumul a b cost_body) \* H)
+    H
     (# I b \* H').
 Proof.
 Admitted. (* TODO *)
@@ -1241,58 +1243,71 @@ Admitted. (* TODO *)
 
 Lemma xfor_inv_case_lemma_refine : forall (I:int->hprop),
    forall (cost : int) (cost_body : int -> int),
-   forall (a:int) (b:int) (F:int->~~unit) H (Q:unit->hprop),
+   forall (a:int) (b:int) (F:int->~~unit) H H1 (Q:unit->hprop),
+   GetCreditsEvar H H1 cost ->
    ((a <= b) -> exists H',
-          (H ==> I a \* H')
+          (H1 ==> I a \* H')
        /\ (forall i, is_local (F i))
        /\ (forall i, a <= i <= b -> F i (\$ (cost_body i) \* I i) (# I(i+1)))
        /\ (cost = cumul a b cost_body)
        /\ (I (b+1) \* H' ==> Q tt \* \GC)) ->
    ((a > b) ->
           (cost = 0)
-       /\ (H ==> Q tt \* \GC)) ->
-   (For i = a To b Do F i Done_) (\$ cost \* H) Q.
+       /\ (H1 ==> Q tt \* \GC)) ->
+   (For i = a To b Do F i Done_) H Q.
 Proof.
 Admitted. (* TODO *)
 
 Lemma xfor_inv_lemma_refine : forall (I:int->hprop),
-  forall (cost_body : int -> int),
-  forall (a:int) (b:int) (F:int->~~unit) H H',
+  forall cost (cost_body : int -> int),
+  forall (a:int) (b:int) (F:int->~~unit) H H1 H',
+  GetCreditsEvar H H1 cost ->
+  (cost = cumul a (b + 1) cost_body) ->
   (a <= b+1) ->
   (forall i, a <= i <= b -> F i (\$ (cost_body i) \* I i) (# I(i+1))) ->
-  (H ==> I a \* H') ->
+  (H1 ==> I a \* H') ->
   (forall i, is_local (F i)) ->
   (For i = a To b Do F i Done_)
-    (\$ (cumul a (b + 1) cost_body) \* H)
+    H
     (# I (b+1) \* H').
 Proof using.
 Admitted. (* TODO *)
 
 Lemma xfor_inv_void_lemma_refine :
-  forall (a:int) (b:int) (F:int->~~unit) H (cost : int),
+  forall (a:int) (b:int) (F:int->~~unit) H H' (cost : int),
+  GetCreditsEvar H H' cost ->
+  cost = 0 ->
   (a > b) ->
-  (For i = a To b Do F i Done_) (\$ 0 \* H) (# H).
+  (For i = a To b Do F i Done_) H (# H').
 Proof using.
 Admitted. (* TODO *)
 
+Ltac xfor_inv_refine_core I HGCE :=
+  first [
+      eapply (@xfor_inv_lemma_pred_refine I)
+    | eapply (@xfor_inv_lemma_refine I) ];
+  [ apply HGCE | reflexivity | | xtag_pre_post | | intro; xlocal ].
+
+Ltac xfor_inv_standard_core I tt :=
+  first [
+      apply (@xfor_inv_lemma_pred I)
+    | apply (@xfor_inv_lemma I) ];
+  [ | xtag_pre_post | | intro; xlocal ].
+
 Ltac xfor_inv_core I ::=
   xfor_pre_ensure_evar_post ltac:(fun _ =>
-    tryif is_refine_cost_goal then (
-      first [ eapply (@xfor_inv_lemma_pred_refine I)
-            | eapply (@xfor_inv_lemma_refine I) ];
-      [ | xtag_pre_post | | intro; xlocal ]
-   ) else (
-     first [ apply (@xfor_inv_lemma_pred I)
-           | apply (@xfor_inv_lemma I) ];
-     [ | | xtag_pre_post ]
-   )).
+    tryif_refine_cost_goal
+      ltac:(xfor_inv_refine_core I)
+      ltac:(xfor_inv_standard_core I)).
 
 Ltac xfor_inv_void_core tt ::=
   xfor_pre_ensure_evar_post ltac:(fun _ =>
-    tryif is_refine_cost_goal then
-      eapply (@xfor_inv_void_lemma_refine)
-    else
-      apply (@xfor_inv_void_lemma)).
+    tryif_refine_cost_goal
+      ltac:(fun HGCE =>
+        eapply (@xfor_inv_void_lemma_refine);
+        [ apply HGCE | reflexivity ])
+      ltac:(fun tt =>
+        apply (@xfor_inv_void_lemma))).
 
 (* TODO: xfor_inv_case *)
 

@@ -1044,13 +1044,16 @@ Qed.
 Ltac refine_zero_credits HGCE :=
   eapply refine_zero_credits'; [ apply HGCE | reflexivity | ].
 
+Ltac try_refine_zero_credits :=
+  tryif_refine_cost_goal ltac:(refine_zero_credits) ltac:(fun _ => idtac).
+
 Ltac xret_apply_lemma tt ::=
-  (tryif_refine_cost_goal ltac:(refine_zero_credits) ltac:(fun _ => idtac));
+  try_refine_zero_credits;
   first [ apply xret_lemma_unify
         | apply xret_lemma ].
 
 Ltac xret_no_gc_core tt ::=
-  (tryif_refine_cost_goal ltac:(refine_zero_credits) ltac:(fun _ => idtac));
+  try_refine_zero_credits;
   first [ apply xret_lemma_unify
         | eapply xret_no_gc_lemma ].
 
@@ -1393,7 +1396,7 @@ Ltac xcase_post H ::=
   tryif_refine_cost_goal
     ltac:(fun HGCE =>
       first [
-        eapply refine_zero_credits'; [ apply HGCE | reflexivity ];
+        refine_zero_credits HGCE;
         solve [ xcase_post_cfml H ]
       | xcase_post_cfml H ])
     ltac:(fun tt =>
@@ -1404,10 +1407,7 @@ Ltac xcase_post H ::=
 Ltac xfail_core tt ::=
   xpull_check_not_needed tt;
   xuntag tag_fail;
-  (tryif_refine_cost_goal
-     ltac:(fun HGCE =>
-       eapply refine_zero_credits'; [ apply HGCE | reflexivity ])
-     ltac:(fun tt => idtac));
+  try_refine_zero_credits;
   apply local_erase;
   xtag_pre_post.
 
@@ -1419,7 +1419,7 @@ Ltac xfail_core tt ::=
 
 Tactic Notation "xdone" :=
   xuntag tag_done;
-  (tryif is_refine_cost_goal then apply refine_zero_credits else idtac);
+  try_refine_zero_credits;
   apply local_erase; split.
 
 Ltac xmatch_case_core cont_case ::=

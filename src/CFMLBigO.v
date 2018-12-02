@@ -725,9 +725,7 @@ Qed.
 Ltac stop_refine :=
   eapply stop_refine_credits; [
     once (typeclasses eauto)
-  | reflexivity
-  |
-  | xlocal ].
+  | reflexivity | | xlocal ].
 
 (* cutO *)
 
@@ -1025,14 +1023,7 @@ Ltac xapply_core H cont1 cont2 ::=
 
 (* xret *******************************)
 
-Lemma refine_zero_credits : forall A (F:~~A) H (Q : A -> hprop),
-  local F H Q ->
-  local F (\$ 0 \* H) Q.
-Proof.
-  introv HH. now rewrite credits_zero_eq, star_neutral_l.
-Qed.
-
-Lemma refine_zero_credits' : forall A (F:~~A) H H' c (Q : A -> hprop),
+Lemma refine_zero_credits : forall A (F:~~A) H H' c (Q : A -> hprop),
   GetCreditsEvar H H' c ->
   c = 0 ->
   local F H' Q ->
@@ -1042,7 +1033,7 @@ Proof.
 Qed.
 
 Ltac refine_zero_credits HGCE :=
-  eapply refine_zero_credits'; [ apply HGCE | reflexivity | ].
+  eapply refine_zero_credits; [ apply HGCE | reflexivity | ].
 
 Ltac try_refine_zero_credits :=
   tryif_refine_cost_goal ltac:(refine_zero_credits) ltac:(fun _ => idtac).

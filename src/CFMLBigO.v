@@ -700,6 +700,48 @@ Ltac postprocess_refine_credits :=
 
 (** *)
 
+Lemma fold_left_add_acc: forall l acc,
+  List.fold_left Z.add l acc = List.fold_left Z.add l 0 + acc.
+Proof.
+  induction l; intros; simpl.
+  - math.
+  - rewrite Z.add_0_l. rewrite (IHl (acc + a)), (IHl a). math.
+Qed.
+
+Lemma fold_left_sub_add: forall l acc,
+  List.fold_left Z.sub l acc = acc - (List.fold_left Z.add l 0).
+Proof.
+  induction l; intros; simpl.
+  - now rewrite Z.sub_0_r.
+  - rewrite Z.add_0_l. rewrite !IHl, (fold_left_add_acc _ a). math.
+Qed.
+
+Lemma substract_left_right_credits: forall h1 h1' h2 h2' l1 l2 c1 c1c2,
+  GetCredits h1 h1' l1 ->
+  GetCredits h2 h2' l2 ->
+  AddIntList l1 c1 ->
+  SubIntList c1 l2 c1c2 ->
+  \$ c1c2 \* h1' ==> h2' ->
+  h1 ==> h2.
+Proof.
+  introv -> -> -> -> HH.
+  rewrite fold_left_sub_add in HH.
+  rewrite !List.fold_symmetric in HH; [| intros; math..].
+  unfold heap_is_credits_list.
+  assert (List.fold_right Z.add 0 l1 =
+          (List.fold_right Z.add 0 l1 - List.fold_right Z.add 0 l2) +
+          List.fold_right Z.add 0 l2) as -> by math.
+  rewrite credits_split_eq.
+  hchange HH. hsimpl.
+Qed.
+
+Ltac postprocess_substract_credits :=
+  eapply substract_left_right_credits; [ once (typeclasses eauto) .. |].
+
+
+(** *)
+
+
 Lemma cleanup_emp_rhs: forall h1 h2 h2',
   CleanupEmp h2 h2' ->
   h1 ==> h2' ->
@@ -709,13 +751,10 @@ Proof. introv ->. eauto. Qed.
 Ltac cleanup_emp_rhs tt :=
   eapply cleanup_emp_rhs; [ once (typeclasses eauto) |].
 
-(* Note: this tactic might be applied to arbitrary goals produced from
-   side-conditions \[ P ] of the RHS, not only the main goal of the form
-   [_ ==> _]. FIXME? *)
-Ltac hsimpl_cleanup tt ::=
+Ltac hsimpl_cleanup_postprocess postp :=
   try apply hsimpl_stop;
   try apply hsimpl_stop;
-  try hsimpl_postprocess; (* New *)
+  try first [ postp tt | hsimpl_postprocess ]; (* New *)
   try cleanup_emp_rhs tt; (* New *)
   try apply pred_incl_refl;
   try hsimpl_hint_remove tt;
@@ -724,7 +763,22 @@ Ltac hsimpl_cleanup tt ::=
   try apply hsimpl_gc;
   try affine.
 
+(* Note: this tactic might be applied to arbitrary goals produced from
+   side-conditions \[ P ] of the RHS, not only the main goal of the form
+   [_ ==> _]. FIXME? *)
+Ltac hsimpl_cleanup tt ::=
+  hsimpl_cleanup_postprocess ltac:(fun tt => fail).
+
 (** *)
+
+(* TEMPORARY override hsimpl_credits *)
+
+Ltac hsimpl_credits_core ::=
+  hpull; intros;
+  hsimpl_setup false;
+  repeat (hsimpl_step false);
+  hsimpl_cleanup_postprocess ltac:(fun tt =>
+    postprocess_substract_credits).
 
 (* xcf ******************************************)
 

@@ -23,6 +23,62 @@ Instance Unify_refl: forall A (x : A),
 Proof. reflexivity. Qed.
 
 (********************************************************************)
+
+Class AddIntList (l : list int) (c : int) :=
+  MkAddIntList : c = List.fold_left Z.add l 0.
+
+Class AddIntListAcc (l : list int) (acc c : int) :=
+  MkAddIntListAcc : c = List.fold_left Z.add l acc.
+
+Hint Mode AddIntList ! - : typeclass_instances.
+Hint Mode AddIntListAcc ! ! - : typeclass_instances.
+
+Instance AddIntList_nil:
+  AddIntList nil 0.
+Proof. reflexivity. Qed.
+
+Instance AddIntList_cons: forall x l c,
+  AddIntListAcc l x c ->
+  AddIntList (x :: l) c.
+Proof.
+  introv ->. unfold AddIntList, AddIntListAcc.
+  simpl. now rewrite Z.add_0_l.
+Qed.
+
+Instance AddIntListAcc_nil: forall acc,
+  AddIntListAcc nil acc acc.
+Proof. reflexivity. Qed.
+
+Instance AddIntListAcc_cons: forall x l acc c,
+  AddIntListAcc l (acc + x) c ->
+  AddIntListAcc (x :: l) acc c.
+Proof. introv ->. reflexivity. Qed.
+
+Goal True.
+  eassert (AddIntList (0 :: 1 :: 2 :: 3 :: nil) _).
+  typeclasses eauto.
+Abort.
+
+Class SubIntList (x : int) (l : list int) (y : int) :=
+  MkSubIntList : y = List.fold_left Z.sub l x.
+
+Hint Mode SubIntList - ! - : typeclass_instances.
+
+Instance SubIntList_nil: forall x,
+  SubIntList x nil x.
+Proof. reflexivity. Qed.
+
+Instance SubIntList_cons: forall x y l z,
+  SubIntList (x - y) l z ->
+  SubIntList x (y :: l) z.
+Proof. introv ->. reflexivity. Qed.
+
+Goal True.
+  eassert (SubIntList 42 (0 :: 1 :: 2 :: nil) _).
+  typeclasses eauto.
+Abort.
+
+(********************************************************************)
 (* Refine credits marker *)
 Lemma credits_refine_def :
   { credits_refine | forall (c : int), credits_refine c = c }.
@@ -194,15 +250,18 @@ Proof. intros. unfold Concat in *. subst. reflexivity. Qed.
 
 (* Iterated \$ *)
 Definition heap_is_credits_list (l : list int) : hprop :=
-  List.fold_right (fun c h => \$ c \* h) \[] l.
+  \$ (List.fold_right Z.add 0 l).
 
 Notation "\$* l" := (heap_is_credits_list l) (at level 40).
 
 Lemma credits_list_nil: \$* nil = \[].
-Proof. reflexivity. Qed.
+Proof. unfold heap_is_credits_list. simpl. now rewrite credits_zero_eq. Qed.
 
 Lemma credits_list_cons x l: \$* (x :: l) = \$ x \* \$* l.
-Proof. reflexivity. Qed.
+Proof.
+  unfold heap_is_credits_list. simpl.
+  now rewrite credits_split_eq.
+Qed.
 
 Lemma credits_list_app: forall l1 l2,
   \$* (l1 ++ l2) = \$* l1 \* \$* l2.

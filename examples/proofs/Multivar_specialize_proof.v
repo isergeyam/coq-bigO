@@ -28,6 +28,7 @@ Undelimit Scope Int_scope.
 Notation "'int'" := Z.
 
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
 
 (*----------------------------------------------------------------------------*)
 

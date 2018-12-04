@@ -23,6 +23,8 @@ Require Import Bellman_ford_ml.
 
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
 
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
+
 Definition ZZle (p1 p2 : Z * Z) :=
   let (x1, y1) := p1 in
   let (x2, y2) := p2 in
@@ -43,7 +45,6 @@ Lemma bellman_ford2_spec :
 Proof.
   xspecO_refine straight_line. xcf.
   xpay.
-
   xapp~. intros ds Hds. subst ds.
   xapp~. apply index_make. apply~ int_index_prove.
   xseq.
@@ -174,7 +175,9 @@ Proof.
     let n' := If 0 < n then n else 1 in
     cost bellman_ford2_spec (n', m)).
   { introv Hnodes Hedges. intros; xapply~ (spec bellman_ford2_spec).
-    hsimpl_credits. apply (cost_monotonic bellman_ford2_spec).
+    hsimpl_credits. (* FIXME *)
+    match goal with |- le 0 (?x - ?y) => enough (y <= x) by math end.
+    apply (cost_monotonic bellman_ford2_spec).
     unfolds ZZle. splits~. cases_if~. cases_if~.
   }
   { eapply monotonic_comp. monotonic.

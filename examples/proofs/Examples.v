@@ -16,6 +16,8 @@ Require Import CFMLBigO.
 (* Load the examples CF definitions. *)
 Require Import Examples_ml.
 
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
+
 (* Prove specifications for auxiliary functions [tick] and [rand].
 
    - [tick ()] just does one step of computation and consumes one credit
@@ -392,9 +394,9 @@ Lemma cutO_refine :
   forall (A : filterType) le (bound : A -> Z) (F: A -> hprop -> Prop) H,
   forall S : specO A le (fun mycost => forall a, F a (\$ (mycost a) \* H)) bound,
   forall (a:A),
-  F a (\$ ((cost S) a) \* H).
+  F a (\$ ⟨(cost S) a⟩ \* H).
 Proof.
-  intros. destruct S. simpl. eauto.
+  intros. destruct S. simpl. rewrite credits_refine_eq. eauto.
 Qed.
 
 Lemma cutO_refine' :
@@ -449,7 +451,7 @@ Proof.
   math. intros i Hi.
   Set Printing Existential Instances.
 
-  match goal with |- PRE (\$ ?f i \* _) POST _ CODE _ =>
+  match goal with |- PRE (\$ ⟨?f i⟩ \* _) POST _ CODE _ =>
     set (mycost := f)
   end.
   revert i Hi.

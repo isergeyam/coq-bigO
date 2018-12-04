@@ -9,6 +9,12 @@ Class IsEvar {A : Type} (x: A) :=
 Hint Extern 0 (IsEvar ?x) =>
   (is_evar x; exact I) : typeclass_instances.
 
+Class IsNotEvar {A : Type} (x: A) :=
+  MkIsNotEvar : True.
+
+Hint Extern 0 (IsNotEvar ?x) =>
+  (tryif is_evar x then fail else exact I) : typeclass_instances.
+
 Class Unify {A : Type} (x y : A) :=
   MkUnify : x = y.
 
@@ -18,16 +24,26 @@ Proof. reflexivity. Qed.
 
 (* Unifies evar <-> evar, notevar <-> notevar,
    but not evar <-> notevar or notevar <-> evar. *)
-Class UnifySameKind {A : Type} (x y : A) :=
-  MkUnifySameKind : x = y.
+(* Class UnifySameKind {A : Type} (x y : A) := *)
+(*   MkUnifySameKind : x = y. *)
 
-Hint Extern 0 (UnifySameKind ?x ?y) =>
-  (tryif is_evar x then
-     (tryif is_evar y then reflexivity
-      else fail)
-   else
-     (tryif is_evar y then fail
-      else reflexivity)) : typeclass_instances.
+(* Hint Extern 0 (UnifySameKind ?x ?y) => *)
+(*   (tryif is_evar x then *)
+(*      (tryif is_evar y then reflexivity *)
+(*       else fail) *)
+(*    else *)
+(*      (tryif is_evar y then fail *)
+(*       else reflexivity)) : typeclass_instances. *)
+
+(********************************************************************)
+(* Refine credits marker *)
+Definition credits_refine (c : int) := c.
+Notation " ⟨ c ⟩ " := (credits_refine c) (format "⟨ c ⟩").
+Hint Opaque credits_refine : typeclass_instances.
+
+Lemma credits_refine_eq c:
+  ⟨ c ⟩ = c.
+Proof. reflexivity. Qed.
 
 (**********************************************************)
 (* Hack: it seems we can get into trouble if we do not manually instantiate
@@ -39,7 +55,7 @@ Hint Extern 0 (UnifySameKind ?x ?y) =>
 Class CreditsPreprocessEta (c1 c2 : int) :=
   MkCreditsPreprocessEta : c1 = c2.
 
-Hint Extern 0 (CreditsPreprocessEta (?c1 _) ?c2) =>
+Hint Extern 0 (CreditsPreprocessEta ⟨?c1 _⟩ ?c2) =>
   (is_evar c1;
    let cf := fresh in
    pose (cf := c1);
@@ -247,18 +263,31 @@ Proof.
   rewrite star_assoc. reflexivity.
 Qed.
 
-Instance GetCreditsExpr_evar: forall c1 c2,
-  UnifySameKind c1 c2 ->
+Instance GetCreditsExpr_evars: forall c1 c2,
+  IsEvar c1 ->
+  IsEvar c2 ->
+  Unify c1 c2 ->
   GetCreditsExpr (\$ c1) c2 \[].
 Proof.
-  intros. unfold GetCreditsExpr, UnifySameKind in *. subst.
+  introv ? ? ->. unfold GetCreditsExpr in *. subst.
   now rewrite star_neutral_l.
+Qed.
+
+(* This is a bit coarse grained, but we want to support querying for ⟨?x⟩ with
+   ⟨_⟩ for example, *and* if there is a ?x, we do not want to instantiate it
+   with ⟨_⟩... *)
+Instance GetCreditsExpr_notevar: forall c1 c2,
+  IsNotEvar c1 ->
+  Unify c1 c2 ->
+  GetCreditsExpr (\$ c1) c2 \[].
+Proof.
+  introv ? ->. unfold GetCreditsExpr in *. subst. now rewrite star_neutral_l.
 Qed.
 
 Goal forall H1 H2 H3 a b c, exists H d,
   \$b \* H1 ==> (H2 \* H \* \$a \* H3 \* \$c) \* \$d ->
   \$b \* H1 ==> (H2 \* H \* \$d \* H3 \* \$c) \* \$a ->
-  \$ b \* H1 ==> H2 \* H \* (\$ a \* \$ d \* (H3 \* \$ c)).
+  \$ b \* H1 ==> H2 \* H \* (\$ a \* \$ ⟨d⟩ \* (H3 \* \$ c)).
 Proof.
   intros. do 2 eexists. intros HH1 HH2.
   asserts L: (forall c h1 h2 h2',
@@ -267,10 +296,43 @@ Proof.
     h1 ==> h2).
   { intros. unfold GetCreditsExpr in *. now subst. }
   dup.
-  { eapply L. typeclasses eauto. apply HH1. }
+  { eapply (L ⟨_⟩). typeclasses eauto. apply HH1. }
   dup.
   { eapply (L a). typeclasses eauto. apply HH2. }
-  match goal with |- context [ \$ ?x ] =>
-    is_evar x; unify x 0 end.
-  eapply L. Fail typeclasses eauto.
+  unfold credits_refine.
+  eapply (L ⟨_⟩). Fail typeclasses eauto.
 Abort.
+
+(**********************************************************)
+
+Class HasSingleCreditsExpr (h h' : hprop) (c : int) :=
+  MkHasSingleCreditsExpr : h = h' \* \$ c.
+
+Lemma HasSingleCreditsExpr_of_GetCredits: forall h h' cs c,
+  GetCredits h h' cs ->
+  cs = c :: nil ->
+  HasSingleCreditsExpr h h' c.
+Proof.
+  intros. unfold GetCredits, HasSingleCreditsExpr in *.
+  subst. now rewrite credits_list_cons, credits_list_nil, star_neutral_r.
+Qed.
+
+(* FUTURE: could that be expressed as a "Hint Committed" in the future?
+   (when these get implemented). *)
+Hint Extern 0 (HasSingleCreditsExpr ?h ?h' ?c) =>
+  (eapply HasSingleCreditsExpr_of_GetCredits;
+   [ once (typeclasses eauto) | reflexivity ]) : typeclass_instances.
+
+Class HasNoCredits (h : hprop) :=
+  MkHasNoCredits : True.
+
+Lemma HasNoCredits_of_GetCredits: forall h h' cs,
+  GetCredits h h' cs ->
+  cs = nil ->
+  HasNoCredits h.
+Proof. intros. exact I. Qed.
+
+(* FUTURE: use Hint Committed? *)
+Hint Extern 0 (HasNoCredits ?h) =>
+  (eapply HasNoCredits_of_GetCredits;
+   [ once (typeclasses eauto) | reflexivity ]) : typeclass_instances.

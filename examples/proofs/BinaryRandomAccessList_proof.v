@@ -15,6 +15,8 @@ Undelimit Scope Int_scope.
 
 Notation "'int'" := Z.
 
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
+
 Module BinaryRandomAccessListSpec (* <: RandomAccessListSigSpec *).
 
 Import BinaryRandomAccessList_ml.
@@ -541,8 +543,8 @@ Proof.
       forwards~: btree_length_correct B1; forwards~: btree_length_correct B2
     end. rew_list in Bi.
     xif; rewrites~ pow_succ_quot in *.
-    { xapp_spec~ IHt1. hsimpl. apply~ Nth_app_l. }
-    { xapp_spec~ IHt2. hsimpl. apply~ Nth_app_r'. math_lia. }
+    { xapply~ IHt1. hsimpl. apply~ Nth_app_l. }
+    { xapply~ IHt2. hsimpl. apply~ Nth_app_r'. math_lia. }
 
     rew_cost. subst. rewrite Z.max_l; swap 1 2.
     { forwards~ Hp: btree_size_pos. rewrite <-Hp. rew_cost. defer. defer. }
@@ -733,7 +735,15 @@ Proof.
   { inv. math. }
   { inverts I. xcf. weaken. xpay. xmatch. { xapps~. }
     xcleanpat. unpack; subst. xapps~. xif.
-    { xapps~. erewrite~ btree_size_length. math. hsimpl. apply~ Nth_app_l. }
+    { xspec. intro S.
+      xapply_core S ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+      Focus 4. xok.
+
+      eauto. erewrite~ btree_size_length. math. hsimpl.
+      apply~ Nth_app_l.
+
+      xapps~. erewrite~ btree_size_length. math. hsimpl. apply~ Nth_app_l. }
     { xapps~. forwards~: btree_size_length. rew_list~ in *.
       xapps~. hsimpl. apply~ Nth_app_r'. math_lia. }
 

@@ -20,6 +20,8 @@ Require Import Sec6_example_ml.
 
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
 
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
+
 Parameter g1_spec :
   specO unit_filterType eq
     (fun cost => app g1 [tt] PRE (\$ cost tt) POST (fun (_:unit) => \[]))

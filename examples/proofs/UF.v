@@ -5,6 +5,8 @@ Require Import Dominated.
 Require Import Monotonic.
 Require Import CFMLBigO.
 
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
+
 Parameter (elem data : Type).
 
 Implicit Types x : elem.

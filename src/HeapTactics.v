@@ -22,19 +22,6 @@ Instance Unify_refl: forall A (x : A),
   Unify x x.
 Proof. reflexivity. Qed.
 
-(* Unifies evar <-> evar, notevar <-> notevar,
-   but not evar <-> notevar or notevar <-> evar. *)
-(* Class UnifySameKind {A : Type} (x y : A) := *)
-(*   MkUnifySameKind : x = y. *)
-
-(* Hint Extern 0 (UnifySameKind ?x ?y) => *)
-(*   (tryif is_evar x then *)
-(*      (tryif is_evar y then reflexivity *)
-(*       else fail) *)
-(*    else *)
-(*      (tryif is_evar y then fail *)
-(*       else reflexivity)) : typeclass_instances. *)
-
 (********************************************************************)
 (* Refine credits marker *)
 Lemma credits_refine_def :

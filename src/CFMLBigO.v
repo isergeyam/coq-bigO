@@ -187,7 +187,10 @@ Definition cleanup_cost
 Lemma cleanup_cost_tagged {A : filterType} le cost bound spec:
   @cleanup_cost A le cost bound spec ->
   @cleanup_cost A le (tagged_cost_fun cost) bound spec.
-Proof. now unfold tagged_cost_fun, credits_refine. Qed.
+Proof.
+  intros (cce & cc & [[[[? ?] ?] ?] ?]). unfold tagged_cost_fun.
+  exists cce cc. split~. intros. rewrite credits_refine_eq. auto.
+Qed.
 
 Lemma cleanup_cost_alt :
   forall (A: filterType) le cost bound spec,
@@ -456,7 +459,8 @@ Instance GetCreditsEvar_inst : forall h h' h'' c,
 Proof.
   intros.
   unfold HeapPreprocessCredits, GetCreditsExpr,
-    GetCreditsEvar, credits_refine in *.
+    GetCreditsEvar in *.
+  rewrite credits_refine_eq in *.
   now subst.
 Qed.
 
@@ -515,7 +519,8 @@ Proof. now unfold HasSingleCreditsExpr, GetCreditsExpr. Qed.
 Instance WeakenFindArg_auto_refine: forall h h' c,
   GetCreditsExpr h ⟨c⟩ h' ->
   WeakenFindArg h Auto h' c.
-Proof. now unfold GetCreditsExpr. Qed.
+Proof.
+  intros. unfold WeakenFindArg. now rewrite credits_refine_eq in *. Qed.
 
 Instance WeakenFindArg_expr: forall h h' c,
   GetCreditsExpr h c h' ->
@@ -545,7 +550,7 @@ Proof.
   introv -> HH Hcost L.
   xapply HH.
   { hsimpl_credits. }
-  { hsimpl. unfold credits_refine. math. }
+  { hsimpl. rewrite credits_refine_eq. math. }
 Qed.
 
 Ltac weaken_core arg :=
@@ -587,7 +592,7 @@ Lemma cutO_refine :
   forall S : specO A le (fun cost => forall a, F (\$ cost a \* H) Q) bound,
   F (\$ ⟨(cost S) a⟩ \* H) Q.
 Proof.
-  introv. unfold credits_refine. destruct S. simpl. auto.
+  introv. rewrite credits_refine_eq. destruct S. simpl. auto.
 Qed.
 
 (* hpull & hclean *********************)
@@ -695,10 +700,23 @@ Ltac postprocess_refine_credits :=
 
 (** *)
 
+Lemma cleanup_emp_rhs: forall h1 h2 h2',
+  CleanupEmp h2 h2' ->
+  h1 ==> h2' ->
+  h1 ==> h2.
+Proof. introv ->. eauto. Qed.
+
+Ltac cleanup_emp_rhs tt :=
+  eapply cleanup_emp_rhs; [ once (typeclasses eauto) |].
+
+(* Note: this tactic might be applied to arbitrary goals produced from
+   side-conditions \[ P ] of the RHS, not only the main goal of the form
+   [_ ==> _]. FIXME? *)
 Ltac hsimpl_cleanup tt ::=
   try apply hsimpl_stop;
   try apply hsimpl_stop;
   try hsimpl_postprocess; (* New *)
+  try cleanup_emp_rhs tt; (* New *)
   try apply pred_incl_refl;
   try hsimpl_hint_remove tt;
   try remove_empty_heaps_right tt;
@@ -728,7 +746,7 @@ Lemma xpay_refine :
   F (\$ ⟨cost'⟩ \* H') Q ->
   (Pay_ ;; F) H Q.
 Proof.
-  introv L -> -> HH. unfold credits_refine in *.
+  introv L -> -> HH. rewrite credits_refine_eq in *.
   xpay_start tt.
   { unfold pay_one. rewrite credits_split_eq. hsimpl. }
   xapplys HH.
@@ -757,7 +775,7 @@ Lemma local_frame_with_credits :
   Q1 \*+ (\$ ⟨c2⟩ \* H2) ===> Q ->
   F H Q.
 Proof.
-  introv -> -> L F1 HI1 HI2. unfold credits_refine in *.
+  introv -> -> L F1 HI1 HI2. rewrite credits_refine_eq in *.
   rewrite credits_split_eq.
   xapply F1. xchange HI1. hsimpl. xchange HI2. hsimpl.
 Qed.
@@ -835,7 +853,7 @@ Lemma xseq_refine :
     F2 (\$ ⟨cost2⟩ \* Q' tt) Q) ->
   (F1 ;; F2) H Q.
 Proof.
-  introv -> -> L1 L2 (Q' & H1 & H2). unfold credits_refine in *.
+  introv -> -> L1 L2 (Q' & H1 & H2). rewrite credits_refine_eq in *.
   xseq_pre tt. apply local_erase. eexists. split.
   { xapply H1. credits_split. hsimpl. }
   { xapply H2. hsimpl. hsimpl. }
@@ -870,7 +888,7 @@ Lemma xlet_refine :
     (forall r, F2 r (\$ ⟨cost2⟩ \* Q' r) Q)) ->
   cf_let F1 F2 H Q.
 Proof.
-  introv -> -> L1 L2 (Q' & H1 & H2). unfold credits_refine in *.
+  introv -> -> L1 L2 (Q' & H1 & H2). rewrite credits_refine_eq in *.
   unfold cf_let.
   eexists. split.
   { xapply H1. credits_split. hsimpl. }
@@ -910,7 +928,7 @@ Lemma xif_refine : forall (A: Type) cost cost1 cost2 cond (F1 F2: ~~A) H H' Q,
    (cond = false -> F2 (\$ ⟨cost2⟩ \* H') Q)) ->
   (If_ cond Then F1 Else F2) H Q.
 Proof.
-  introv -> -> L1 L2 (H1 & H2). unfold credits_refine in *.
+  introv -> -> L1 L2 (H1 & H2). rewrite credits_refine_eq in *.
   apply local_erase.
   split; intro; [xapply~ H1 | xapply~ H2]; hsimpl_credits;
   math_lia.
@@ -948,7 +966,7 @@ Lemma xif_guard_refine :
    (cond = false -> F2 (\$ ⟨cost2⟩ \* H') Q)) ->
   (If_ cond Then F1 Else F2) H Q.
 Proof.
-  introv -> -> costE L1 L2 (H1 & H2). unfold credits_refine in *.
+  introv -> -> costE L1 L2 (H1 & H2). rewrite credits_refine_eq in *.
   apply local_erase. rewrite costE.
   split; intro C; rewrite C; cases_if; [xapply~ H1 | xapply~ H2].
 Qed.
@@ -978,7 +996,7 @@ Lemma xguard_refine :
   F (\$ ⟨cost'⟩ \* H') Q ->
   F H Q.
 Proof.
-  introv -> -> HG HH. unfold credits_refine in *. cases_if.
+  introv -> -> HG HH. rewrite credits_refine_eq in *. cases_if.
   now rewrite star_comm.
 Qed.
 
@@ -1088,8 +1106,8 @@ Lemma cf_max_credits_weaken_l :
     F (\$ ⟨c1⟩ \* H) Q ->
     F (\$ Z.max c1 c2 \* H) Q.
 Proof.
-  introv ? HH. unfold credits_refine in *. xapply HH. hsimpl_credits. hsimpl.
-  math_lia.
+  introv ? HH. rewrite credits_refine_eq in *. xapply HH. hsimpl_credits.
+  hsimpl. math_lia.
 Qed.
 
 Lemma cf_max_credits_weaken_r :
@@ -1098,8 +1116,8 @@ Lemma cf_max_credits_weaken_r :
     F (\$ ⟨c2⟩ \* H) Q ->
     F (\$ Z.max c1 c2 \* H) Q.
 Proof.
-  introv ? HH. unfold credits_refine in *. xapply HH. hsimpl_credits. hsimpl.
-  math_lia.
+  introv ? HH. rewrite credits_refine_eq in *. xapply HH. hsimpl_credits.
+  hsimpl. math_lia.
 Qed.
 
 Lemma xcase_refine :
@@ -1224,5 +1242,3 @@ Ltac xstep_once tt :=
      | |- _ ===> _ => first [ xsimpl | fail 2 ]
      end
   end.
-
-Global Opaque credits_refine.

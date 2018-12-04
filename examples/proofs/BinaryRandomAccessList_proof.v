@@ -735,15 +735,7 @@ Proof.
   { inv. math. }
   { inverts I. xcf. weaken. xpay. xmatch. { xapps~. }
     xcleanpat. unpack; subst. xapps~. xif.
-    { xspec. intro S.
-      xapply_core S ltac:(fun _ => idtac) ltac:(fun _ => idtac).
-
-      Focus 4. xok.
-
-      eauto. erewrite~ btree_size_length. math. hsimpl.
-      apply~ Nth_app_l.
-
-      xapps~. erewrite~ btree_size_length. math. hsimpl. apply~ Nth_app_l. }
+    { xapps~. erewrite~ btree_size_length. math. hsimpl. apply~ Nth_app_l. }
     { xapps~. forwards~: btree_size_length. rew_list~ in *.
       xapps~. hsimpl. apply~ Nth_app_r'. math_lia. }
 

@@ -37,13 +37,19 @@ Proof. reflexivity. Qed.
 
 (********************************************************************)
 (* Refine credits marker *)
-Definition credits_refine (c : int) := c.
+Lemma credits_refine_def :
+  { credits_refine | forall (c : int), credits_refine c = c }.
+Proof. exists (fun (x:int) => x). eauto. Qed.
+
+Definition credits_refine := proj1_sig credits_refine_def.
+
 Notation " ⟨ c ⟩ " := (credits_refine c) (format "⟨ c ⟩").
 Hint Opaque credits_refine : typeclass_instances.
+Global Opaque credits_refine.
 
 Lemma credits_refine_eq c:
   ⟨ c ⟩ = c.
-Proof. reflexivity. Qed.
+Proof. apply (proj2_sig credits_refine_def). Qed.
 
 (**********************************************************)
 (* Hack: it seems we can get into trouble if we do not manually instantiate
@@ -111,24 +117,75 @@ Proof. intros. now unfold HeapPreprocessCredits. Qed.
 Class Star (h1 h2 h3 : hprop) :=
   MkStar : h1 \* h2 = h3.
 
-Class Star' (h1 h2 h3 : hprop) :=
-  MkStar' : Star h1 h2 h3.
+Class Star'l (h1 h2 h3 : hprop) :=
+  MkStar'l : Star h1 h2 h3.
 
-Instance Star_of': forall h1 h2 h3,
-  Star' h1 h2 h3 ->
+Class Star'r (h1 h2 h3 : hprop) :=
+  MkStar'r : Star h1 h2 h3.
+
+Instance Star_of'l: forall h1 h2 h3,
+  Star'l h1 h2 h3 ->
   Star h1 h2 h3.
 Proof. eauto. Qed.
 
-Hint Mode Star' ! ! - : typeclass_instances.
+Instance Star_of'r: forall h1 h2 h3,
+  Star'r h1 h2 h3 ->
+  Star h1 h2 h3.
+Proof. eauto. Qed.
 
-Instance Star'_emp_l: forall h, Star' \[] h h.
+Hint Mode Star'l ! - - : typeclass_instances.
+Hint Mode Star'r - ! - : typeclass_instances.
+
+Instance Star'_emp_l: forall h, Star'l \[] h h.
 Proof. intros. apply star_neutral_l. Qed.
 
-Instance Star'_emp_r: forall h, Star' h \[] h.
+Instance Star'_emp_r: forall h, Star'r h \[] h.
 Proof. intros. apply star_neutral_r. Qed.
 
 Instance Star_default: forall h1 h2, Star h1 h2 (h1 \* h2) | 2.
 Proof. reflexivity. Qed.
+
+(**********************************************************)
+(* CleanupEmp: removes the \[] in a heap by recursively applying Star *)
+
+Class CleanupEmp (h1 h2 : hprop) :=
+  MkCleanupEmp : h1 = h2.
+
+Class CleanupEmp' (h1 h2 : hprop) :=
+  MkCleanupEmp' : CleanupEmp h1 h2.
+
+Instance CleanupEmp_of': forall h1 h2,
+  CleanupEmp' h1 h2 ->
+  CleanupEmp h1 h2.
+Proof. eauto. Qed.
+
+Hint Mode CleanupEmp' ! - : typeclass_instances.
+
+Instance CleanupEmp'_star: forall h1 h1' h2 h2' h1h2',
+  CleanupEmp h1 h1' ->
+  CleanupEmp h2 h2' ->
+  Star h1' h2' h1h2' ->
+  CleanupEmp' (h1 \* h2) h1h2'.
+Proof. introv -> -> ->. now unfold CleanupEmp. Qed.
+
+Instance CleanupEmp_default: forall h,
+  CleanupEmp h h | 10.
+Proof. reflexivity. Qed.
+
+Goal forall H1 H2, exists H3,
+  H1 ==> H2 \* H3 ->
+  \[] \* (H1 \* \[])  ==> H2 \* \[] \* H3.
+Proof.
+  intros. eexists. intros HH1.
+  assert (L: forall h1 h1' h2 h2',
+    CleanupEmp h1 h1' ->
+    CleanupEmp h2 h2' ->
+    h1' ==> h2' ->
+    h1 ==> h2).
+  { introv -> ->. eauto. }
+  eapply L; [ once (typeclasses eauto) .. |].
+  apply HH1.
+Abort.
 
 (**********************************************************)
 (* Concat: typeclass-level list concatenation.
@@ -285,8 +342,8 @@ Proof.
 Qed.
 
 Goal forall H1 H2 H3 a b c, exists H d,
-  \$b \* H1 ==> (H2 \* H \* \$a \* H3 \* \$c) \* \$d ->
-  \$b \* H1 ==> (H2 \* H \* \$d \* H3 \* \$c) \* \$a ->
+  \$b \* H1 ==> (H2 \* H \* \$a \* H3 \* \$c) \* \$⟨d⟩ ->
+  \$b \* H1 ==> (H2 \* H \* \$⟨d⟩ \* H3 \* \$c) \* \$a ->
   \$ b \* H1 ==> H2 \* H \* (\$ a \* \$ ⟨d⟩ \* (H3 \* \$ c)).
 Proof.
   intros. do 2 eexists. intros HH1 HH2.
@@ -299,7 +356,7 @@ Proof.
   { eapply (L ⟨_⟩). typeclasses eauto. apply HH1. }
   dup.
   { eapply (L a). typeclasses eauto. apply HH2. }
-  unfold credits_refine.
+  rewrite credits_refine_eq.
   eapply (L ⟨_⟩). Fail typeclasses eauto.
 Abort.
 

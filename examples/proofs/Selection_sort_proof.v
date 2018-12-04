@@ -21,6 +21,8 @@ Require Import CFMLBigO.
 (* Load the CF definitions. *)
 Require Import Selection_sort_ml.
 
+Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
+
 Lemma swap_spec :
   specO unit_filterType eq
     (fun cost =>

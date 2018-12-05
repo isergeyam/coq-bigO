@@ -24,11 +24,78 @@ Proof. reflexivity. Qed.
 
 (********************************************************************)
 
+(* Iterated (+) *)
+Definition big_add (l : list int) : int :=
+  List.fold_left Z.add l 0.
+
+Definition big_add_acc (l : list int) (acc : int) : int :=
+  List.fold_left Z.add l acc.
+
+(* Boilerplate equations *)
+Lemma big_add_nil:
+  big_add nil = 0.
+Proof. reflexivity. Qed.
+
+Lemma big_add_cons: forall x l,
+  big_add (x :: l) = big_add_acc l x.
+Proof. intros. reflexivity. Qed.
+
+Lemma big_add_acc_nil acc:
+  big_add_acc nil acc = acc.
+Proof. reflexivity. Qed.
+
+Lemma big_add_acc_cons x l acc:
+  big_add_acc (x :: l) acc = big_add_acc l (acc + x).
+Proof. reflexivity. Qed.
+
+(* Lemmas *)
+Lemma big_add_of_acc: forall l acc,
+  big_add_acc l acc = big_add l + acc.
+Proof.
+  induction l; intros;
+  rewrite ?big_add_nil, ?big_add_acc_nil, ?big_add_cons, ?big_add_acc_cons.
+  - math.
+  - rewrite (IHl (acc + a)), (IHl a). math.
+Qed.
+
+Lemma big_add_app: forall l1 l2,
+  big_add (l1 ++ l2) = big_add l1 + big_add l2.
+Proof.
+  induction l1; intros; rew_list; rewrite ?big_add_nil, ?big_add_cons.
+  - math.
+  - rewrite !big_add_of_acc, IHl1. math.
+Qed.
+
+(* Iterated (-) *)
+Definition big_sub (x : int) (l : list int) : int :=
+  List.fold_left Z.sub l x.
+
+(* Boilerplate equations *)
+Lemma big_sub_nil x:
+  big_sub x nil = x.
+Proof. reflexivity. Qed.
+
+Lemma big_sub_cons x y l:
+  big_sub x (y :: l) = big_sub (x - y) l.
+Proof. reflexivity. Qed.
+
+(* Lemmas *)
+Lemma big_sub_big_add: forall l x,
+  big_sub x l = x - big_add l.
+Proof.
+  induction l; intros;
+  rewrite ?big_sub_nil, ?big_add_nil, ?big_sub_cons, ?big_add_cons.
+  - now rewrite Z.sub_0_r.
+  - rewrite !IHl, (big_add_of_acc _ a). math.
+Qed.
+
+(********************************************************************)
+
 Class AddIntList (l : list int) (c : int) :=
-  MkAddIntList : c = List.fold_left Z.add l 0.
+  MkAddIntList : c = big_add l.
 
 Class AddIntListAcc (l : list int) (acc c : int) :=
-  MkAddIntListAcc : c = List.fold_left Z.add l acc.
+  MkAddIntListAcc : c = big_add_acc l acc.
 
 Hint Mode AddIntList ! - : typeclass_instances.
 Hint Mode AddIntListAcc ! ! - : typeclass_instances.
@@ -42,7 +109,7 @@ Instance AddIntList_cons: forall x l c,
   AddIntList (x :: l) c.
 Proof.
   introv ->. unfold AddIntList, AddIntListAcc.
-  simpl. now rewrite Z.add_0_l.
+  simpl. now rewrite big_add_cons.
 Qed.
 
 Instance AddIntListAcc_nil: forall acc,
@@ -60,7 +127,7 @@ Goal True.
 Abort.
 
 Class SubIntList (x : int) (l : list int) (y : int) :=
-  MkSubIntList : y = List.fold_left Z.sub l x.
+  MkSubIntList : y = big_sub x l.
 
 Hint Mode SubIntList - ! - : typeclass_instances.
 
@@ -250,26 +317,24 @@ Proof. intros. unfold Concat in *. subst. reflexivity. Qed.
 
 (* Iterated \$ *)
 Definition heap_is_credits_list (l : list int) : hprop :=
-  \$ (List.fold_right Z.add 0 l).
+  \$ big_add l.
 
 Notation "\$* l" := (heap_is_credits_list l) (at level 40).
 
 Lemma credits_list_nil: \$* nil = \[].
-Proof. unfold heap_is_credits_list. simpl. now rewrite credits_zero_eq. Qed.
+Proof. unfold heap_is_credits_list. now rewrite big_add_nil, credits_zero_eq. Qed.
 
 Lemma credits_list_cons x l: \$* (x :: l) = \$ x \* \$* l.
 Proof.
-  unfold heap_is_credits_list. simpl.
-  now rewrite credits_split_eq.
+  unfold heap_is_credits_list.
+  now rewrite big_add_cons, big_add_of_acc, credits_split_eq, star_comm.
 Qed.
 
-Lemma credits_list_app: forall l1 l2,
+Lemma credits_list_app l1 l2:
   \$* (l1 ++ l2) = \$* l1 \* \$* l2.
 Proof.
-  induction l1; intros; rew_list.
-  - rewrite credits_list_nil. rewrite~ star_neutral_l.
-  - rewrite !credits_list_cons, IHl1.
-    rewrite~ star_assoc.
+  unfold heap_is_credits_list.
+  now rewrite big_add_app, credits_split_eq.
 Qed.
 
 (*****************)
@@ -439,3 +504,61 @@ Proof. intros. exact I. Qed.
 Hint Extern 0 (HasNoCredits ?h) =>
   (eapply HasNoCredits_of_GetCredits;
    [ once (typeclasses eauto) | reflexivity ]) : typeclass_instances.
+
+(**********************************************************)
+
+Lemma GCGC_eq_GC:
+  \GC \* \GC = \GC.
+Proof.
+  unfold heap_is_gc, heap_is_star.
+  apply fun_ext_1. intros h.
+  apply prop_ext. split.
+  - intros (h1 & h2 & (? & [HH1 ?]) & (? & [HH2 ?]) & ?). unpack. split.
+    + subst. apply~ heap_affine_union.
+    + subst. exists (HH1 \* HH2). unfold heap_is_star. do 2 eexists. eauto.
+  - intros (? & [HH ?]). exists h heap_empty. repeat split; eauto.
+    + apply heap_affine_empty.
+    + exists \[]. unfold heap_is_empty. eauto.
+Qed.
+
+Class HasGC (h : hprop) :=
+  MkHasGC : h = h \* \GC.
+
+Class HasGC' (h : hprop) :=
+  MkHasGC' : HasGC h.
+
+Lemma HasGC_of': forall h,
+  HasGC' h ->
+  HasGC h.
+Proof. eauto. Qed.
+
+Hint Mode HasGC' ! : typeclass_instances.
+
+Instance HasGC'_star_l: forall h1 h2,
+  HasGC h1 ->
+  HasGC' (h1 \* h2).
+Proof.
+  introv ->. unfold HasGC', HasGC.
+  now rewrite <-!star_assoc, (star_comm _ \GC), (star_assoc \GC), GCGC_eq_GC.
+Qed.
+
+Instance HasGC'_star_r: forall h1 h2,
+  HasGC h2 ->
+  HasGC' (h1 \* h2).
+Proof.
+  introv ->. unfold HasGC', HasGC.
+  now rewrite <-!star_assoc, GCGC_eq_GC.
+Qed.
+
+Instance HasGC'_GC:
+  HasGC' \GC.
+Proof. unfold HasGC', HasGC. now rewrite GCGC_eq_GC. Qed.
+
+Instance HasGC_evar: forall h h',
+  IsEvar h ->
+  Unify h (\GC \* h') ->
+  HasGC h.
+Proof.
+  introv _ ->. unfold HasGC.
+  now rewrite <-star_assoc, (star_comm _ \GC), (star_assoc \GC), GCGC_eq_GC.
+Qed.

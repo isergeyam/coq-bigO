@@ -670,7 +670,7 @@ Ltac hclean_main tt ::=
 Ltac hsimpl_postprocess :=
   fail.
 
-(** *)
+(** refine credits *)
 
 Lemma refine_inst_single_credit: forall h1 h1' h2 h2' c1 c2,
   GetCreditsEvar h1 h1' c1 ->
@@ -692,29 +692,93 @@ Proof.
   introv -> _ -> H. rewrite credits_zero_eq. hchange H. hsimpl.
 Qed.
 
-Ltac postprocess_refine_credits :=
+Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2,
+  HasGC h2 ->
+  GetCredits h1 h1' l1 ->
+  GetCredits h2 h2' l2 ->
+  h1' ==> h2' ->
+  big_add l2 <= big_add l1 ->
+  h1 ==> h2.
+Proof.
+  introv HGC -> -> HH HI. rewrite HGC. unfold heap_is_credits_list.
+  assert (big_add l1 = (big_add l1 - big_add l2) + big_add l2) as -> by math.
+  rewrite credits_split_eq.
+  hchange HH. hsimpl. math.
+Qed.
+
+Lemma credits_eq_from_himpl_without_GC: forall h1 h2 h1' h2' l1 l2,
+  GetCredits h1 h1' l1 ->
+  GetCredits h2 h2' l2 ->
+  h1' ==> h2' ->
+  big_add l2 = big_add l1 ->
+  h1 ==> h2.
+Proof.
+  introv -> -> HH HI. unfold heap_is_credits_list. rewrite HI.
+  hchange HH. hsimpl.
+Qed.
+
+Ltac unfold_big_add :=
+  cbn [big_add List.fold_left].
+
+Ltac credits_subgoal_main :=
   first [
-    eapply refine_inst_single_credit; [ once (typeclasses eauto) .. |]
-  | eapply refine_inst_zero_credits; [ once (typeclasses eauto) .. |]
+    eapply credits_ineq_from_himpl_with_GC;
+    [ once (typeclasses eauto) .. | | unfold_big_add ]
+  | eapply credits_eq_from_himpl_without_GC;
+    [ once (typeclasses eauto) .. | | unfold_big_add ]
   ].
 
-(** *)
+(* Setup markers, and introduce local definitions to protect evars from
+   being instantiated by rewrite. *)
+Definition Piggybank (c : int) := c.
+Definition Remaining (c : int) := c.
 
-Lemma fold_left_add_acc: forall l acc,
-  List.fold_left Z.add l acc = List.fold_left Z.add l 0 + acc.
-Proof.
-  induction l; intros; simpl.
-  - math.
-  - rewrite Z.add_0_l. rewrite (IHl (acc + a)), (IHl a). math.
-Qed.
+Ltac set_Piggybank_in X :=
+  match X with context [ ⟨ ?x ⟩ ] =>
+    let p := fresh "p" in
+    set (p := ⟨ x ⟩);
+    fold (Piggybank p)
+  end.
 
-Lemma fold_left_sub_add: forall l acc,
-  List.fold_left Z.sub l acc = acc - (List.fold_left Z.add l 0).
-Proof.
-  induction l; intros; simpl.
-  - now rewrite Z.sub_0_r.
-  - rewrite Z.add_0_l. rewrite !IHl, (fold_left_add_acc _ a). math.
-Qed.
+Ltac set_Piggybank :=
+  match goal with
+  | |- _ <= ?X => set_Piggybank_in X
+  | |- _ = ?X => set_Piggybank_in X
+  end.
+
+Ltac set_Remaining_in X :=
+  match X with
+  | ?x =>
+    is_evar x;
+    let r := fresh "r" in
+    set (r := x);
+    fold (Remaining r)
+  | ?Y + ?Z =>
+    first [ set_Remaining_in Y | set_Remaining_in Z ]
+  end.
+
+Ltac set_Remaining :=
+  match goal with
+  | |- ?X <= _ => set_Remaining_in X
+  (* in the = case there is no Remaining (otherwise we could extract a GC from
+     it, and produce a <= instead. *)
+  end.
+
+Ltac credits_subgoal :=
+  credits_subgoal_main;
+  [ | try set_Piggybank; try set_Remaining ].
+
+Ltac postprocess_refine_credits :=
+  (* Only try to do something if the goal does contain a refine credits marker *)
+  match goal with |- context [ \$ ⟨ _ ⟩ ] =>
+    first [
+      eapply refine_inst_single_credit; [ once (typeclasses eauto) .. |]
+    | eapply refine_inst_zero_credits; [ once (typeclasses eauto) .. |]
+    | credits_subgoal
+    ]
+  end.
+
+(** hsimpl_credits: join the lhs, substract the rhs *)
 
 Lemma substract_left_right_credits: forall h1 h1' h2 h2' l1 l2 c1 c1c2,
   GetCredits h1 h1' l1 ->
@@ -725,22 +789,19 @@ Lemma substract_left_right_credits: forall h1 h1' h2 h2' l1 l2 c1 c1c2,
   h1 ==> h2.
 Proof.
   introv -> -> -> -> HH.
-  rewrite fold_left_sub_add in HH.
-  rewrite !List.fold_symmetric in HH; [| intros; math..].
+  rewrite big_sub_big_add in HH.
   unfold heap_is_credits_list.
-  assert (List.fold_right Z.add 0 l1 =
-          (List.fold_right Z.add 0 l1 - List.fold_right Z.add 0 l2) +
-          List.fold_right Z.add 0 l2) as -> by math.
+  assert (big_add l1 = (big_add l1 - big_add l2) + big_add l2) as -> by math.
   rewrite credits_split_eq.
   hchange HH. hsimpl.
 Qed.
 
 Ltac postprocess_substract_credits :=
-  eapply substract_left_right_credits; [ once (typeclasses eauto) .. |].
-
+  match goal with |- context [ \$ _ ] =>
+    eapply substract_left_right_credits; [ once (typeclasses eauto) .. |]
+  end.
 
 (** *)
-
 
 Lemma cleanup_emp_rhs: forall h1 h2 h2',
   CleanupEmp h2 h2' ->

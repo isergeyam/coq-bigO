@@ -683,8 +683,40 @@ Qed.
 Ltac postprocess_refine_auto :=
   eapply refine_inst_only_evar_lhs; [ once (typeclasses eauto) .. |].
 
+Class IntroCreditsFrame (h : hprop) :=
+  MkIntroCreditsFrame : True.
+
+Class IntroCreditsFrame' (h : hprop) :=
+  MkIntroCreditsFrame' : IntroCreditsFrame h.
+
+Instance IntroCreditsFrame_of': forall h,
+  IntroCreditsFrame' h ->
+  IntroCreditsFrame h.
+Proof. eauto. Qed.
+
+Hint Mode IntroCreditsFrame' ! : typeclass_instances.
+
+Instance IntroCreditsFrame'_star: forall h1 h2,
+  IntroCreditsFrame h1 ->
+  IntroCreditsFrame h2 ->
+  IntroCreditsFrame' (h1 \* h2).
+Proof. intros. exact I. Qed.
+
+Instance IntroCreditsFrame'_default: forall h,
+  IntroCreditsFrame' h | 100.
+Proof. intros. exact I. Qed.
+
+Instance IntroCreditsFrame_evar: forall h h' c,
+  IsEvar h ->
+  Unify h (\$c \* h') ->
+  IntroCreditsFrame h.
+Proof. intros. exact I. Qed.
+
+(** *)
+
 Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2 c1 c2,
   HasGC h2 ->
+  IntroCreditsFrame h2 ->
   GetCredits h1 h1' l1 ->
   GetCredits h2 h2' l2 ->
   AddIntList l1 c1 ->
@@ -693,12 +725,26 @@ Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2 c1 c2,
   c2 <= c1 ->
   h1 ==> h2.
 Proof.
-  introv HGC -> -> -> -> HH HI. rewrite HGC. unfold heap_is_credits_list.
+  introv HGC _ -> -> -> -> HH HI. rewrite HGC. unfold heap_is_credits_list.
   assert (big_add l1 = (big_add l1 - big_add l2) + big_add l2) as -> by math.
   rewrite credits_split_eq.
   hchange HH. hsimpl. math.
 Qed.
 
+Goal forall H1 H2 c1 c2, exists H3 c3,
+  H1 \* \$ ⟨c1⟩ \* H2 ==> \$ c2 \* H3 \* \$ c3.
+Proof.
+  intros. do 2 eexists.
+  eapply credits_ineq_from_himpl_with_GC.
+  typeclasses eauto.
+  typeclasses eauto.
+  typeclasses eauto.
+  typeclasses eauto.
+  typeclasses eauto.
+  typeclasses eauto.
+Abort.
+
+(* TODO: ensure piggybank / remaining are in the last position of l1/l2 *)
 Lemma credits_eq_from_himpl_without_GC: forall h1 h2 h1' h2' l1 l2 c1 c2,
   GetCredits h1 h1' l1 ->
   GetCredits h2 h2' l2 ->

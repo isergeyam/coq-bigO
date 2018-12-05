@@ -98,7 +98,7 @@ Class AddIntListAcc (l : list int) (acc c : int) :=
   MkAddIntListAcc : c = big_add_acc l acc.
 
 Hint Mode AddIntList ! - : typeclass_instances.
-Hint Mode AddIntListAcc ! ! - : typeclass_instances.
+Hint Mode AddIntListAcc ! - - : typeclass_instances.
 
 Instance AddIntList_nil:
   AddIntList nil 0.

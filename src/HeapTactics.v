@@ -532,7 +532,7 @@ Class HasGC (h : hprop) :=
 Class HasGC' (h : hprop) :=
   MkHasGC' : HasGC h.
 
-Lemma HasGC_of': forall h,
+Instance HasGC_of': forall h,
   HasGC' h ->
   HasGC h.
 Proof. eauto. Qed.

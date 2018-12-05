@@ -674,22 +674,24 @@ Ltac hsimpl_postprocess :=
 
 Lemma refine_inst_single_credit: forall h1 h1' h2 h2' c1 c2,
   GetCreditsEvar h1 h1' c1 ->
+  HasNoCredits h1' ->
   HasSingleCreditsExpr h2 h2' c2 ->
   Unify c1 c2 ->
   h1' ==> h2' ->
   h1 ==> h2.
 Proof.
-  introv -> -> -> H. xchange H. hsimpl.
+  introv -> _ -> -> H. xchange H. hsimpl.
 Qed.
 
 Lemma refine_inst_zero_credits: forall h1 h1' c1 h2,
   GetCreditsEvar h1 h1' c1 ->
+  HasNoCredits h1' ->
   HasNoCredits h2 ->
   Unify c1 0 ->
   h1' ==> h2 ->
   h1 ==> h2.
 Proof.
-  introv -> _ -> H. rewrite credits_zero_eq. hchange H. hsimpl.
+  introv -> _ _ -> H. rewrite credits_zero_eq. hchange H. hsimpl.
 Qed.
 
 Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2,

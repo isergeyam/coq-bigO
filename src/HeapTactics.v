@@ -147,6 +147,13 @@ Abort.
 
 (********************************************************************)
 (* Refine credits marker *)
+
+(* Roundabout way of creating a *really* opaque constant.
+
+   (this is required because [refine] (and sometimes [apply]) seem to ignore
+    opacity as specified by Opaque, which would make [xapp]/[xapply] ignore our
+    marker).
+*)
 Lemma credits_refine_def :
   { credits_refine | forall (c : int), credits_refine c = c }.
 Proof. exists (fun (x:int) => x). eauto. Qed.
@@ -393,8 +400,6 @@ Proof.
     h1 ==> h2).
   { intros. unfold GetCredits in *. now subst. }
   eapply L. typeclasses eauto. typeclasses eauto.
-
-
   eassumption.
 Abort.
 

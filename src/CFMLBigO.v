@@ -811,6 +811,10 @@ Ltac hsimpl_postprocess :=
 
 (** *)
 
+(* These cleanup tactics are a bit ad-hoc. Maybe all of [hsimpl_cleanup] should
+   be implemented in this style, instead of trying to minimize the diff and
+   match the input expected by the existing tactics. *)
+
 Lemma cleanup_emp_rhs: forall h1 h2 h2',
   CleanupEmp h2 h2' ->
   h1 ==> h2' ->
@@ -820,17 +824,35 @@ Proof. introv ->. eauto. Qed.
 Ltac cleanup_emp_rhs tt :=
   eapply cleanup_emp_rhs; [ once (typeclasses eauto) |].
 
+
+(* This is because HasGC might split the frame evar to introduce a \GC, and we
+   might want to get rid of it afterwards.. *)
+Lemma cleanup_GC_star_evar: forall h1 h2,
+  h1 ==> h2 ->
+  h1 ==> \GC \* h2.
+Proof.
+  introv HH. hchange HH. hsimpl.
+Qed.
+
+Ltac cleanup_GC_star_evar tt :=
+  match goal with |- _ ==> \GC \* ?h =>
+    is_evar h;
+    apply cleanup_GC_star_evar
+  end.
+
 Ltac hsimpl_cleanup_with_postprocessor postp :=
   try apply hsimpl_stop;
   try apply hsimpl_stop;
   try first [ postp tt | hsimpl_postprocess ]; (* New *)
   try cleanup_emp_rhs tt; (* New *)
+  try cleanup_GC_star_evar tt; (* New, very ad-hoc *)
   try apply pred_incl_refl;
   try hsimpl_hint_remove tt;
   try remove_empty_heaps_right tt;
   try remove_empty_heaps_left tt;
   try apply hsimpl_gc;
   try affine.
+
 
 (* Note: this tactic might be applied to arbitrary goals produced from
    side-conditions \[ P ] of the RHS, not only the main goal of the form

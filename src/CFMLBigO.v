@@ -888,14 +888,14 @@ Ltac xpay_core tt ::=
 
 (* xapply *****************************)
 
-Lemma local_frame_with_credits :
+Lemma local_frame_gc_with_credits :
   forall B H1 H2 (Q1: B->hprop) (F:~~B) H H' Q c c1 c2,
   GetCreditsEvar H H' c ->
   c = c1 + c2 ->
   is_local F ->
   F H1 Q1 ->
   \$ ⟨c1⟩ \* H' ==> H1 \* H2 ->
-  Q1 \*+ (\$ ⟨c2⟩ \* H2) ===> Q ->
+  Q1 \*+ (\$ ⟨c2⟩ \* H2) ===> Q \*+ \GC ->
   F H Q.
 Proof.
   introv -> -> L F1 HI1 HI2. rewrite credits_refine_eq in *.
@@ -917,7 +917,7 @@ Ltac xapply_refine_core H cont1 cont2 HGCE :=
     | false =>
       match cfml_postcondition_contains_credits tt with
       | true =>
-        eapply local_frame_with_credits;
+        eapply local_frame_gc_with_credits;
         [ apply HGCE | reflexivity | xlocal | sapply K | cont1 tt | cont2 tt ]
       | false =>
         eapply local_frame_gc; [ xlocal | sapply K | cont1 tt | cont2 tt ]

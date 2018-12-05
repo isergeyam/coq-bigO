@@ -668,62 +668,53 @@ Ltac hclean_main tt ::=
 
 (** refine credits *)
 
-Lemma refine_inst_single_credit: forall h1 h1' h2 h2' c1 c2,
+Lemma refine_inst_only_evar_lhs: forall h1 h1' h2 h2' c1 l2 c2,
   GetCreditsEvar h1 h1' c1 ->
   HasNoCredits h1' ->
-  HasSingleCreditsExpr h2 h2' c2 ->
+  GetCredits h2 h2' l2 ->
+  AddIntList l2 c2 ->
   Unify c1 c2 ->
   h1' ==> h2' ->
   h1 ==> h2.
 Proof.
-  introv -> _ -> -> H. xchange H. hsimpl.
+  introv -> _ -> -> -> H. xchange H. hsimpl.
 Qed.
 
-Lemma refine_inst_zero_credits: forall h1 h1' c1 h2,
-  GetCreditsEvar h1 h1' c1 ->
-  HasNoCredits h1' ->
-  HasNoCredits h2 ->
-  Unify c1 0 ->
-  h1' ==> h2 ->
-  h1 ==> h2.
-Proof.
-  introv -> _ _ -> H. rewrite credits_zero_eq. hchange H. hsimpl.
-Qed.
-
-Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2,
+Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2 c1 c2,
   HasGC h2 ->
   GetCredits h1 h1' l1 ->
   GetCredits h2 h2' l2 ->
+  AddIntList l1 c1 ->
+  AddIntList l2 c2 ->
   h1' ==> h2' ->
-  big_add l2 <= big_add l1 ->
+  c2 <= c1 ->
   h1 ==> h2.
 Proof.
-  introv HGC -> -> HH HI. rewrite HGC. unfold heap_is_credits_list.
+  introv HGC -> -> -> -> HH HI. rewrite HGC. unfold heap_is_credits_list.
   assert (big_add l1 = (big_add l1 - big_add l2) + big_add l2) as -> by math.
   rewrite credits_split_eq.
   hchange HH. hsimpl. math.
 Qed.
 
-Lemma credits_eq_from_himpl_without_GC: forall h1 h2 h1' h2' l1 l2,
+Lemma credits_eq_from_himpl_without_GC: forall h1 h2 h1' h2' l1 l2 c1 c2,
   GetCredits h1 h1' l1 ->
   GetCredits h2 h2' l2 ->
+  AddIntList l1 c1 ->
+  AddIntList l2 c2 ->
   h1' ==> h2' ->
-  big_add l2 = big_add l1 ->
+  c2 = c1 ->
   h1 ==> h2.
 Proof.
-  introv -> -> HH HI. unfold heap_is_credits_list. rewrite HI.
+  introv -> -> -> -> HH HI. unfold heap_is_credits_list. rewrite HI.
   hchange HH. hsimpl.
 Qed.
-
-Ltac unfold_big_add :=
-  cbn [big_add List.fold_left].
 
 Ltac credits_subgoal_main :=
   first [
     eapply credits_ineq_from_himpl_with_GC;
-    [ once (typeclasses eauto) .. | | unfold_big_add ]
+    [ once (typeclasses eauto) .. | | ]
   | eapply credits_eq_from_himpl_without_GC;
-    [ once (typeclasses eauto) .. | | unfold_big_add ]
+    [ once (typeclasses eauto) .. | | ]
   ].
 
 (* Setup markers, and introduce local definitions to protect evars from
@@ -770,8 +761,7 @@ Ltac postprocess_refine_credits :=
   (* Only try to do something if the goal does contain a refine credits marker *)
   match goal with |- context [ \$ ⟨ _ ⟩ ] =>
     first [
-      eapply refine_inst_single_credit; [ once (typeclasses eauto) .. |]
-    | eapply refine_inst_zero_credits; [ once (typeclasses eauto) .. |]
+      eapply refine_inst_only_evar_lhs; [ once (typeclasses eauto) .. |]
     | credits_subgoal
     ]
   end.

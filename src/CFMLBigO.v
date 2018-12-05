@@ -714,10 +714,8 @@ Qed.
 
 Ltac credits_subgoal_main :=
   first [
-    eapply credits_ineq_from_himpl_with_GC;
-    [ once (typeclasses eauto) .. | | ]
-  | eapply credits_eq_from_himpl_without_GC;
-    [ once (typeclasses eauto) .. | | ]
+    eapply credits_ineq_from_himpl_with_GC; [ once (typeclasses eauto) .. | | ]
+  | eapply credits_eq_from_himpl_without_GC; [ once (typeclasses eauto) .. | | ]
   ].
 
 (* Setup markers, and introduce local definitions to protect evars from

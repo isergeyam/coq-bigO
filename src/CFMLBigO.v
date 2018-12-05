@@ -896,56 +896,6 @@ Ltac xpay_core tt ::=
     xpay_refine_core
     standard_xpay.
 
-(* xapply *****************************)
-
-Lemma local_frame_with_credits :
-  forall B H1 H2 (Q1: B->hprop) (F:~~B) H H' Q c c1 c2,
-  GetCreditsEvar H H' c ->
-  c = c1 + c2 ->
-  is_local F ->
-  F H1 Q1 ->
-  \$ ⟨c1⟩ \* H' ==> H1 \* H2 ->
-  Q1 \*+ (\$ ⟨c2⟩ \* H2) ===> Q ->
-  F H Q.
-Proof.
-  introv -> -> L F1 HI1 HI2. rewrite credits_refine_eq in *.
-  rewrite credits_split_eq.
-  xapply F1. xchange HI1. hsimpl. xchange HI2. hsimpl.
-Qed.
-
-Ltac cfml_postcondition_contains_credits tt :=
-  let Q := cfml_get_postcondition tt in
-  lazymatch Q with
-  | context [ \$ _ ] => constr:(true : bool)
-  | _ => constr:(false : bool)
-  end.
-
-Ltac xapply_refine_core H cont1 cont2 HGCE :=
-  forwards_nounfold_then H ltac:(fun K =>
-    match cfml_postcondition_is_evar tt with
-    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try xok ]
-    | false =>
-      match cfml_postcondition_contains_credits tt with
-      | true =>
-        eapply local_frame_with_credits;
-        [ apply HGCE | reflexivity | xlocal | sapply K | cont1 tt | cont2 tt ]
-      | false =>
-        eapply local_frame_gc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
-      end
-    end).
-
-Ltac xapply_standard_core H cont1 cont2 tt :=
-  forwards_nounfold_then H ltac:(fun K =>
-  match cfml_postcondition_is_evar tt with
-  | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try xok ]
-  | false => eapply local_frame_gc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
-  end).
-
-Ltac xapply_core H cont1 cont2 ::=
-  tryif_refine_cost_goal
-    ltac:(xapply_refine_core H cont1 cont2)
-    ltac:(xapply_standard_core H cont1 cont2).
-
 (* xret *******************************)
 
 Lemma refine_zero_credits : forall A (F:~~A) H H' c (Q : A -> hprop),

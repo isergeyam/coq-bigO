@@ -30,7 +30,6 @@ Qed.
 Hint Resolve pow2_sub_1_nonneg : zarith.
 
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
-Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
 
 Lemma f_spec :
   specZ [cost \in_O (fun n => 2 ^ n)]

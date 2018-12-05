@@ -23,8 +23,6 @@ Require Import Bellman_ford_ml.
 
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
 
-Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
-
 Definition ZZle (p1 p2 : Z * Z) :=
   let (x1, y1) := p1 in
   let (x2, y2) := p2 in

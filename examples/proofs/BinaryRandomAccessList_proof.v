@@ -15,8 +15,6 @@ Undelimit Scope Int_scope.
 
 Notation "'int'" := Z.
 
-Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
-
 Module BinaryRandomAccessListSpec (* <: RandomAccessListSigSpec *).
 
 Import BinaryRandomAccessList_ml.

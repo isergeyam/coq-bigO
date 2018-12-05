@@ -666,10 +666,6 @@ Ltac hclean_main tt ::=
   ( context <_> -> refine credits | otherwise -> cas par défaut )
 *)
 
-(* Hook *)
-Ltac hsimpl_postprocess :=
-  fail.
-
 (** refine credits *)
 
 Lemma refine_inst_single_credit: forall h1 h1' h2 h2' c1 c2,
@@ -803,6 +799,26 @@ Ltac postprocess_substract_credits :=
     eapply substract_left_right_credits; [ once (typeclasses eauto) .. |]
   end.
 
+(* Hook for postprocessing actions (typically, to handle credits).
+
+   The default hook would be just [fail].
+
+   Here, we try to be a bit more clever, and enable the "refine" postprocessor
+   if the goal contains a [\$ ⟨_⟩]. This can be overriden by redefining the hook
+   (locally or not).
+
+   The postprocessor can also be set when calling the tactic (WIP), see below.
+   If a preprocessor is specified on the commandline, it will be used instead of
+   the global one.
+
+   FIXME: currently, if a preprocessor is manually specified BUT fails, the
+   global one will be used instead. We probably just want to do nothing instead.
+*)
+Ltac hsimpl_postprocess :=
+  match goal with
+  | |- context [ \$ ⟨ _ ⟩ ] => postprocess_refine_credits
+  end.
+
 (** *)
 
 Lemma cleanup_emp_rhs: forall h1 h2 h2',
@@ -814,7 +830,7 @@ Proof. introv ->. eauto. Qed.
 Ltac cleanup_emp_rhs tt :=
   eapply cleanup_emp_rhs; [ once (typeclasses eauto) |].
 
-Ltac hsimpl_cleanup_postprocess postp :=
+Ltac hsimpl_cleanup_with_postprocessor postp :=
   try apply hsimpl_stop;
   try apply hsimpl_stop;
   try first [ postp tt | hsimpl_postprocess ]; (* New *)
@@ -830,7 +846,7 @@ Ltac hsimpl_cleanup_postprocess postp :=
    side-conditions \[ P ] of the RHS, not only the main goal of the form
    [_ ==> _]. FIXME? *)
 Ltac hsimpl_cleanup tt ::=
-  hsimpl_cleanup_postprocess ltac:(fun tt => fail).
+  hsimpl_cleanup_with_postprocessor ltac:(fun tt => fail).
 
 (** *)
 
@@ -840,7 +856,7 @@ Ltac hsimpl_credits_core ::=
   hpull; intros;
   hsimpl_setup false;
   repeat (hsimpl_step false);
-  hsimpl_cleanup_postprocess ltac:(fun tt =>
+  hsimpl_cleanup_with_postprocessor ltac:(fun tt =>
     postprocess_substract_credits).
 
 (* xcf ******************************************)

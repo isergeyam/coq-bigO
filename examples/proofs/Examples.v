@@ -16,8 +16,6 @@ Require Import CFMLBigO.
 (* Load the examples CF definitions. *)
 Require Import Examples_ml.
 
-Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
-
 (* Prove specifications for auxiliary functions [tick] and [rand].
 
    - [tick ()] just does one step of computation and consumes one credit

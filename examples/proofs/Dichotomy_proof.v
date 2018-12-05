@@ -37,7 +37,6 @@ Require Import Dichotomy_ml.
 (* Qed. *)
 
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
-Local Ltac hsimpl_postprocess ::= postprocess_refine_credits.
 
 Lemma bsearch_spec :
   specZ [cost \in_O Z.log2]

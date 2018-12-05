@@ -680,6 +680,9 @@ Proof.
   introv -> _ -> -> -> H. xchange H. hsimpl.
 Qed.
 
+Ltac postprocess_refine_auto :=
+  eapply refine_inst_only_evar_lhs; [ once (typeclasses eauto) .. |].
+
 Lemma credits_ineq_from_himpl_with_GC: forall h1 h2 h1' h2' l1 l2 c1 c2,
   HasGC h2 ->
   GetCredits h1 h1' l1 ->
@@ -753,18 +756,14 @@ Ltac set_Remaining :=
      it, and produce a <= instead. *)
   end.
 
-Ltac credits_subgoal :=
-  credits_subgoal_main;
-  [ | try set_Piggybank; try set_Remaining ].
-
-Ltac postprocess_refine_credits :=
+Ltac postprocess_credits_subgoal :=
   (* Only try to do something if the goal does contain a refine credits marker *)
   match goal with |- context [ \$ ⟨ _ ⟩ ] =>
-    first [
-      eapply refine_inst_only_evar_lhs; [ once (typeclasses eauto) .. |]
-    | credits_subgoal
-    ]
+    credits_subgoal_main; [| try set_Piggybank; try set_Remaining ]
   end.
+
+Ltac postprocess_refine_auto_or_subgoal :=
+  first [ postprocess_refine_auto | postprocess_credits_subgoal ].
 
 (** hsimpl_credits: join the lhs, substract the rhs *)
 
@@ -806,7 +805,7 @@ Ltac postprocess_substract_credits :=
 *)
 Ltac hsimpl_postprocess :=
   match goal with
-  | |- context [ \$ ⟨ _ ⟩ ] => postprocess_refine_credits
+  | |- context [ \$ ⟨ _ ⟩ ] => postprocess_refine_auto_or_subgoal
   end.
 
 (** *)
@@ -840,7 +839,7 @@ Ltac cleanup_GC_star_evar tt :=
     apply cleanup_GC_star_evar
   end.
 
-Ltac hsimpl_cleanup_with_postprocessor postp :=
+Ltac hsimpl_cleanup_with_postprocess postp :=
   try apply hsimpl_stop;
   try apply hsimpl_stop;
   try first [ postp tt | hsimpl_postprocess ]; (* New *)
@@ -858,17 +857,23 @@ Ltac hsimpl_cleanup_with_postprocessor postp :=
    side-conditions \[ P ] of the RHS, not only the main goal of the form
    [_ ==> _]. FIXME? *)
 Ltac hsimpl_cleanup tt ::=
-  hsimpl_cleanup_with_postprocessor ltac:(fun tt => fail).
+  hsimpl_cleanup_with_postprocess ltac:(fun tt => fail).
 
 (** *)
+
+(* TEMPORARY hsimpl with postprocess argument *)
+Ltac hsimpl_main_with_postprocess postp :=
+  hsimpl_setup false;
+  (repeat (hsimpl_step false));
+  hsimpl_cleanup_with_postprocess postp.
+
+Ltac hsimpl_with_postprocess postp :=
+  hpull; intros; hsimpl_main_with_postprocess postp.
 
 (* TEMPORARY override hsimpl_credits *)
 
 Ltac hsimpl_credits_core ::=
-  hpull; intros;
-  hsimpl_setup false;
-  repeat (hsimpl_step false);
-  hsimpl_cleanup_with_postprocessor ltac:(fun tt =>
+  hpull; intros; hsimpl_main_with_postprocess ltac:(fun tt =>
     postprocess_substract_credits).
 
 (* xcf ******************************************)

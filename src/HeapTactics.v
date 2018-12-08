@@ -66,6 +66,12 @@ Proof.
   - rewrite !big_add_of_acc, IHl1. math.
 Qed.
 
+Lemma big_add_snoc: forall l x,
+  big_add (l & x) = big_add l + x.
+Proof.
+  intros. now rewrite big_add_app, big_add_cons, big_add_acc_nil.
+Qed.
+
 (* Iterated (-) *)
 Definition big_sub (x : int) (l : list int) : int :=
   List.fold_left Z.sub l x.
@@ -88,6 +94,22 @@ Proof.
   - now rewrite Z.sub_0_r.
   - rewrite !IHl, (big_add_of_acc _ a). math.
 Qed.
+
+(********************************************************************)
+
+Class Snoc {A} (l : list A) (x : A) (l' : list A) :=
+  MkSnoc : l' = l & x.
+
+Hint Mode Snoc - ! - - : typeclass_instances.
+
+Instance Snoc_nil: forall A (x:A),
+  Snoc nil x (x :: nil).
+Proof. reflexivity. Qed.
+
+Instance Snoc_cons: forall A (l l': list A) (x y: A),
+  Snoc l x l' ->
+  Snoc (y :: l) x (y :: l').
+Proof. introv ->. reflexivity. Qed.
 
 (********************************************************************)
 
@@ -566,4 +588,24 @@ Instance HasGC_evar: forall h h',
 Proof.
   introv _ ->. unfold HasGC.
   now rewrite <-star_assoc, (star_comm _ \GC), (star_assoc \GC), GCGC_eq_GC.
+Qed.
+
+(**********************************************************)
+(* CreditsHeap: credits list -> hprop *)
+
+Class CreditsHeap (l : list int) (h : hprop) :=
+  MkCreditsHeap : h = \$* l.
+
+Hint Mode CreditsHeap ! - : typeclass_instances.
+
+Instance CreditsHeap_nil:
+  CreditsHeap nil \[].
+Proof. unfold CreditsHeap. now rewrite credits_list_nil. Qed.
+
+Instance CreditsHeap_cons: forall x l h xh,
+  CreditsHeap l h ->
+  Star (\$ x) h xh ->
+  CreditsHeap (x :: l) xh.
+Proof.
+  introv -> <-. unfold CreditsHeap. now rewrite credits_list_cons.
 Qed.

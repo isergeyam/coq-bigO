@@ -941,8 +941,8 @@ Proof. introv -> -> HH. xchange HH. rewrite credits_zero_eq. hsimpl. Qed.
 Ltac piggybank_inst_with_expr x :=
   first [
     match type_term x with 0 =>
-      eapply piggybank_inst_0; [ once (typeclasses eauto) |] end
-  | eapply (@piggybank_inst_with_expr x); [ once (typeclasses eauto) |]
+      eapply piggybank_inst_0; [ once (typeclasses eauto) .. |] end
+  | eapply (@piggybank_inst_with_expr x); [ once (typeclasses eauto) .. |]
   ].
 
 Tactic Notation "piggybank:" uconstr(x) :=

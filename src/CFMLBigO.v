@@ -839,23 +839,6 @@ Ltac hsimpl_setup process_credits ::=
   try cleanup_GC_lhs; (* New *)
   apply hsimpl_start.
 
-(*
-(* This is because HasGC might split the frame evar to introduce a \GC, and we
-   might want to get rid of it afterwards.. *)
-Lemma cleanup_GC_star_evar: forall h1 h2,
-  h1 ==> h2 ->
-  h1 ==> \GC \* h2.
-Proof.
-  introv HH. hchange HH. hsimpl.
-Qed.
-
-Ltac cleanup_GC_star_evar tt :=
-  match goal with |- _ ==> \GC \* ?h =>
-    is_evar h;
-    apply cleanup_GC_star_evar
-  end.
-*)
-
 
 (* Terminates goals of the form:
 
@@ -1003,8 +986,29 @@ Proof.
   { rewrite Hc. hsimpl_credits. }
 Qed.
 
+(* This is because HasGC might split the frame evar to introduce a \GC, and we
+   might want to get rid of it afterwards.. *)
+Lemma cleanup_GC_star_evar: forall h1 h2,
+  h1 ==> h2 ->
+  h1 ==> \GC \* h2.
+Proof.
+  introv HH. hchange HH. hsimpl.
+Qed.
+
+Ltac cleanup_GC_star_evar :=
+  match goal with |- _ ==> \GC \* ?h =>
+    is_evar h;
+    apply cleanup_GC_star_evar
+  end.
+
+
 Ltac piggybank_credits_ineq :=
-  eapply piggybank_credits_ineq; [ once (typeclasses eauto) .. | | ].
+  eapply piggybank_credits_ineq;
+  [ once (typeclasses eauto) ..
+  | set_Piggybank
+  | try cleanup_GC_star_evar;
+    hsimpl_cleanup_after_postprocess
+  ].
 
 Tactic Notation "piggybank:" "*" :=
   piggybank_credits_ineq.

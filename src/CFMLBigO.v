@@ -1013,6 +1013,26 @@ Ltac piggybank_credits_ineq :=
 Tactic Notation "piggybank:" "*" :=
   piggybank_credits_ineq.
 
+(* TODO: also handle inequalities (x <= y + Piggybank p) *)
+Lemma piggybank_credits_ineq_done : forall x p,
+  p = x ->
+  x <= Piggybank ⟨p⟩.
+Proof. introv ->. rewrite credits_refine_eq. reflexivity. Qed.
+
+Lemma piggybank_credits_eq_done : forall x p,
+  p = x ->
+  x = Piggybank ⟨p⟩.
+Proof. introv ->. rewrite credits_refine_eq. reflexivity. Qed.
+
+Ltac piggybank_credits_ineq_done :=
+  match goal with |- context [ Piggybank ?p ] => subst p end;
+  first [ apply piggybank_credits_ineq_done
+        | apply piggybank_credits_eq_done ];
+  reflexivity.
+
+Tactic Notation "piggybank:" "*" "done" :=
+  piggybank_credits_ineq_done.
+
 (* *)
 
 Lemma frame_inst_with_expr x : forall h1 h1' h2 h2' f,

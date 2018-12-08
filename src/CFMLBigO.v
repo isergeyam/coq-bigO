@@ -991,7 +991,7 @@ Lemma piggybank_credits_ineq: forall h1 h2 l1 l2 h1' h1'' h2' p l1' c1 c2 cmp,
   GetCredits h1' h1'' l1 ->
   GetCredits h2 h2' l2 ->
   AddIntList l2 c2 ->
-  Snoc l1 (Piggybank p) l1' ->
+  Snoc l1 (Piggybank ⟨p⟩) l1' ->
   AddIntList l1' c1 ->
   cmp c2 c1 ->
   h1'' ==> h2' ->
@@ -999,7 +999,7 @@ Lemma piggybank_credits_ineq: forall h1 h2 l1 l2 h1' h1'' h2' p l1' c1 c2 cmp,
 Proof.
   introv Hcmp -> -> -> -> -> -> Hc HH. unfold ChooseIneqOrEq in Hcmp.
   rewrite big_add_snoc in Hc. unfold heap_is_credits_list in *. hchange HH.
-  unfold Piggybank in *.
+  unfold Piggybank in *. rewrite credits_refine_eq in Hc.
   destruct Hcmp as [ [-> ->] | -> ].
   { hsimpl_credits. math. }
   { rewrite Hc. hsimpl_credits. }

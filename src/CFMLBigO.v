@@ -931,19 +931,8 @@ Lemma piggybank_inst_with_expr x : forall h1 h2 h1' h2' p,
   h1 ==> h2.
 Proof. introv -> -> -> HH. xchange HH. hsimpl. Qed.
 
-Lemma piggybank_inst_0 : forall h1 h2 h1' p,
-  GetCreditsEvar h1 h1' p ->
-  Unify p 0 ->
-  h1' ==> h2 ->
-  h1 ==> h2.
-Proof. introv -> -> HH. xchange HH. rewrite credits_zero_eq. hsimpl. Qed.
-
 Ltac piggybank_inst_with_expr x :=
-  first [
-    match type_term x with 0 =>
-      eapply piggybank_inst_0; [ once (typeclasses eauto) .. |] end
-  | eapply (@piggybank_inst_with_expr x); [ once (typeclasses eauto) .. |]
-  ].
+  eapply (@piggybank_inst_with_expr x); [ once (typeclasses eauto) .. |].
 
 Tactic Notation "piggybank:" uconstr(x) :=
   piggybank_inst_with_expr x.
@@ -1005,6 +994,25 @@ Proof.
   { rewrite Hc. hsimpl_credits. }
 Qed.
 
+Lemma piggybank_inst_0_credits_ineq: forall h1 h2 l1 l2 h1' h1'' h2' p c1 c2 cmp,
+  ChooseIneqOrEq h2 cmp ->
+  GetCreditsEvar h1 h1' p ->
+  Unify p 0 ->
+  GetCredits h1' h1'' l1 ->
+  GetCredits h2 h2' l2 ->
+  AddIntList l2 c2 ->
+  AddIntList l1 c1 ->
+  cmp c2 c1 ->
+  h1'' ==> h2' ->
+  h1 ==> h2.
+Proof.
+  introv Hcmp -> -> -> -> -> -> Hc HH. unfold ChooseIneqOrEq in Hcmp.
+  unfold heap_is_credits_list in *. hchange HH. rewrite credits_zero_eq.
+  destruct Hcmp as [[-> ->] | ->].
+  { hsimpl_credits. math. }
+  { rewrite Hc. hsimpl_credits. }
+Qed.
+
 (* This is because HasGC might split the frame evar to introduce a \GC, and we
    might want to get rid of it afterwards.. *)
 Lemma cleanup_GC_star_evar: forall h1 h2,
@@ -1020,7 +1028,6 @@ Ltac cleanup_GC_star_evar :=
     apply cleanup_GC_star_evar
   end.
 
-
 Ltac piggybank_credits_ineq :=
   eapply piggybank_credits_ineq;
   [ once (typeclasses eauto) ..
@@ -1031,6 +1038,14 @@ Ltac piggybank_credits_ineq :=
 
 Tactic Notation "piggybank:" "*" :=
   piggybank_credits_ineq.
+
+Ltac piggybank_inst_0_credits_ineq :=
+  eapply piggybank_inst_0_credits_ineq;
+  [ once (typeclasses eauto) ..
+  | | try cleanup_GC_star_evar; hsimpl_cleanup_after_postprocess ].
+
+Tactic Notation "piggybank:" "*0" :=
+  piggybank_inst_0_credits_ineq.
 
 (* TODO: also handle inequalities (x <= y + Piggybank p) *)
 Lemma piggybank_credits_ineq_done : forall x p,
@@ -1054,30 +1069,30 @@ Tactic Notation "piggybank:" "*" "done" :=
 
 (* *)
 
-Lemma frame_inst_with_expr x : forall h1 h1' h2 h2' f,
-  GetCreditsExpr h1 x h1' ->
-  GetFrame h2 h2' f ->
-  Unify f (\$ x) ->
-  h1' ==> h2' ->
-  h1 ==> h2.
-Proof. introv -> -> -> HH. xchange HH. hsimpl. Qed.
+(* Lemma frame_inst_with_expr x : forall h1 h1' h2 h2' f, *)
+(*   GetCreditsExpr h1 x h1' -> *)
+(*   GetFrame h2 h2' f -> *)
+(*   Unify f (\$ x) -> *)
+(*   h1' ==> h2' -> *)
+(*   h1 ==> h2. *)
+(* Proof. introv -> -> -> HH. xchange HH. hsimpl. Qed. *)
 
-Lemma frame_inst_with_emp : forall h1 h2 h2' f,
-  GetFrame h2 h2' f ->
-  Unify f \[] ->
-  h1 ==> h2' ->
-  h1 ==> h2.
-Proof. introv -> -> HH. xchange HH. hsimpl. Qed.
+(* Lemma frame_inst_with_emp : forall h1 h2 h2' f, *)
+(*   GetFrame h2 h2' f -> *)
+(*   Unify f \[] -> *)
+(*   h1 ==> h2' -> *)
+(*   h1 ==> h2. *)
+(* Proof. introv -> -> HH. xchange HH. hsimpl. Qed. *)
 
-Ltac frame_inst_with_expr x :=
-  first [
-    match type_term x with
-      \[] => eapply frame_inst_with_emp; [ once (typeclasses eauto) .. |] end
-  | eapply (@frame_inst_with_expr x); [ once (typeclasses eauto) .. |]
-  ].
+(* Ltac frame_inst_with_expr x := *)
+(*   first [ *)
+(*     match type_term x with *)
+(*       \[] => eapply frame_inst_with_emp; [ once (typeclasses eauto) .. |] end *)
+(*   | eapply (@frame_inst_with_expr x); [ once (typeclasses eauto) .. |] *)
+(*   ]. *)
 
-Tactic Notation "frame:" uconstr(x) :=
-  frame_inst_with_expr x.
+(* Tactic Notation "frame:" uconstr(x) := *)
+(*   frame_inst_with_expr x. *)
 
 (*********************************)
 

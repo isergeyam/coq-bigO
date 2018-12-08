@@ -820,25 +820,44 @@ Proof.
   now rewrite <-!star_assoc, (star_comm _ \GC).
 Qed.
 
-Lemma cleanup_GC_lhs: forall h1 h1' h2 h2',
-  RemoveGC h1 h1' ->
-  RemoveGC h2 h2' ->
-  h1' ==> h2 ->
-  h1 ==> h2.
+(* Lemma cleanup_GC_lhs: forall h1 h1' h2 h2', *)
+(*   RemoveGC h1 h1' -> *)
+(*   RemoveGC h2 h2' -> *)
+(*   h1' ==> h2 -> *)
+(*   h1 ==> h2. *)
+(* Proof. *)
+(*   introv -> -> HH. rewrite <-GCGC_eq_GC at 2. xchange HH. hsimpl. *)
+(* Qed. *)
+
+(* Ltac cleanup_GC_lhs := *)
+(*   eapply cleanup_GC_lhs; [ once (typeclasses eauto) .. |]. *)
+
+(* Ltac hsimpl_setup process_credits ::= *)
+(*   prepare_goal_hpull_himpl tt; *)
+(*   try (check_arg_true process_credits; credits_join_left_repeat tt); *)
+(*   hsimpl_left_empty tt; *)
+(*   (* try cleanup_GC_lhs; (* New *) *) *)
+(*   apply hsimpl_start. *)
+
+Lemma hsimpl_cancel_GC_lhs : forall HL HL' HA HR,
+  RemoveGC HL HL' ->
+  HL' ==> (\GC \* HA) \* HR -> (* keep \GC *)
+  HL ==> HA \* \GC \* HR.
 Proof.
-  introv -> -> HH. rewrite <-GCGC_eq_GC at 2. xchange HH. hsimpl.
+  introv -> HH. hchange HH.
+  rewrite (star_assoc _ \GC), (star_comm _ \GC), <-!star_assoc.
+  rewrite (star_assoc \GC), GCGC_eq_GC.
+  hsimpl.
 Qed.
 
-Ltac cleanup_GC_lhs :=
-  eapply cleanup_GC_lhs; [ once (typeclasses eauto) .. |].
+Ltac hsimpl_cancel_GC_lhs tt :=
+  eapply hsimpl_cancel_GC_lhs; [ once (typeclasses eauto) |].
 
-Ltac hsimpl_setup process_credits ::=
-  prepare_goal_hpull_himpl tt;
-  try (check_arg_true process_credits; credits_join_left_repeat tt);
-  hsimpl_left_empty tt;
-  try cleanup_GC_lhs; (* New *)
-  apply hsimpl_start.
-
+(* TEMPORARY TODO: put into CFML *)
+Ltac hsimpl_hook H ::=
+  match H with
+  | \GC => hsimpl_cancel_GC_lhs tt
+  end.
 
 (* Terminates goals of the form:
 

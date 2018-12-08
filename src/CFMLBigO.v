@@ -937,10 +937,11 @@ Lemma piggybank_inst_0 : forall h1 h2 h1' p,
 Proof. introv -> -> HH. xchange HH. rewrite credits_zero_eq. hsimpl. Qed.
 
 Ltac piggybank_inst_with_expr x :=
-  lazymatch x with
-  | 0 => eapply piggybank_inst_0; [ once (typeclasses eauto) |]
-  | _ => eapply (@piggybank_inst_with_expr x); [ once (typeclasses eauto) |]
-  end.
+  first [
+    match type_term x with 0 =>
+      eapply piggybank_inst_0; [ once (typeclasses eauto) |] end
+  | eapply (@piggybank_inst_with_expr x); [ once (typeclasses eauto) |]
+  ].
 
 Tactic Notation "piggybank:" uconstr(x) :=
   piggybank_inst_with_expr x.
@@ -1026,10 +1027,11 @@ Lemma frame_inst_with_emp : forall h1 h2 h2' f,
 Proof. introv -> -> HH. xchange HH. hsimpl. Qed.
 
 Ltac frame_inst_with_expr x :=
-  lazymatch x with
-  | \[] => eapply frame_inst_with_emp; [ once (typeclasses eauto) .. |]
-  | _ => eapply (@frame_inst_with_expr x); [ once (typeclasses eauto) .. |]
-  end.
+  first [
+    match type_term x with
+      \[] => eapply frame_inst_with_emp; [ once (typeclasses eauto) .. |] end
+  | eapply (@frame_inst_with_expr x); [ once (typeclasses eauto) .. |]
+  ].
 
 Tactic Notation "frame:" uconstr(x) :=
   frame_inst_with_expr x.

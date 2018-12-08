@@ -960,10 +960,10 @@ Proof.
 Qed.
 
 Ltac piggybank_refine_with_expr x :=
-  eapply (@piggybank_refine_with_expr x); [ once (typeclasses eauto) |].
+  eapply (@piggybank_refine_with_expr x); [ once (typeclasses eauto) .. |].
 
 Tactic Notation "piggybank+" uconstr(x) :=
-  piggybank_refine_with_expr.
+  piggybank_refine_with_expr x.
 
 Definition Piggybank (c : int) := c.
 

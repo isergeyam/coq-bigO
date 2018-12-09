@@ -1087,6 +1087,24 @@ Ltac xapplys_base H ::=
   xpull_check_not_needed tt;
   xapply_core H ltac:(fun tt => hcancel_autorefine_credits) ltac:(fun tt => hsimpl_autorefine_credits).
 
+(* FIXME FIXME: fix xchange instead *)
+Ltac xopen_core t ::=
+  let C1 := xopen_constr t in
+  ltac_database_get database_xopen C1;
+  let K := fresh "TEMP" in
+  intros K; xchange_base ltac:(fun tt => hsimpl; hsimpl_cleanup_trysolve) (K t) __; clear K.
+
+Ltac xclose_core args ::=
+  let args := list_boxer_of args in
+  let C1 := xclose_constr args in
+  ltac_database_get database_xclose C1;
+  let K := fresh "TEMP" in
+  intros K;
+  let E := constr:((boxer K)::args) in
+  xchange_base ltac:(fun tt => hsimpl; hsimpl_cleanup_trysolve) E __;
+  clear K.
+
+
 (*
 Class IntroCreditsFrame (h : hprop) :=
   MkIntroCreditsFrame : True.

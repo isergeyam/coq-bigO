@@ -1281,9 +1281,14 @@ Ltac xpay_core tt ::=
     standard_xpay.
 
 (* xapply *****************************)
-(* TODO: revisit why this is needed. And clarify if "postcondition contains
-   credits" is REALLY the relevant test here, or if it works by chance on the
-   one place where the custom xapply is used.. *)
+
+(* This is useful for cases where the goal is
+
+     [F (\$ ⟨?c⟩ \* H) (Q \* \$ x)]
+
+   and we do xapp/xapply: we want to split ?c to be able to pay for [\$ x]
+   later...
+*)
 
 Lemma local_frame_gc_with_credits :
   forall B H1 H2 (Q1: B->hprop) (F:~~B) H H' Q c c1 c2,

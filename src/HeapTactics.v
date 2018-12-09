@@ -609,3 +609,45 @@ Instance CreditsHeap_cons: forall x l h xh,
 Proof.
   introv -> <-. unfold CreditsHeap. now rewrite credits_list_cons.
 Qed.
+
+(**********************************************************)
+(* Extract a \GC from a hprop *)
+
+Class RemoveGC (h h' : hprop) :=
+  MkRemoveGC : h = h' \* \GC.
+
+Hint Mode RemoveGC ! - : typeclass_instances.
+
+Instance RemoveGC_GC:
+  RemoveGC \GC \[].
+Proof. unfold RemoveGC. now rewrite star_neutral_l. Qed.
+
+Instance RemoveGC_star: forall h1 h1' h2 h2' h1h2',
+  RemoveGC h1 h1' ->
+  RemoveGC h2 h2' ->
+  Star h1' h2' h1h2' ->
+  RemoveGC (h1 \* h2) h1h2'.
+Proof.
+  introv -> -> <-. unfold RemoveGC.
+  now rewrite <-!star_assoc, (star_comm _ \GC), (star_assoc \GC), GCGC_eq_GC.
+Qed.
+
+Instance RemoveGC_star_l: forall h1 h1' h2 h1h2',
+  RemoveGC h1 h1' ->
+  Star h1' h2 h1h2' ->
+  RemoveGC (h1 \* h2) h1h2'
+| 20.
+Proof.
+  introv -> <-. unfold RemoveGC.
+  now rewrite <-!star_assoc, (star_comm _ \GC).
+Qed.
+
+Instance RemoveGC_star_r: forall h1 h2 h2' h1h2',
+  RemoveGC h2 h2' ->
+  Star h1 h2' h1h2' ->
+  RemoveGC (h1 \* h2) h1h2'
+| 20.
+Proof.
+  introv -> <-. unfold RemoveGC.
+  now rewrite <-!star_assoc, (star_comm _ \GC).
+Qed.

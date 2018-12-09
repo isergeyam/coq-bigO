@@ -649,25 +649,6 @@ Ltac hclean_main tt ::=
 
 (* hsimpl *****************************)
 
-(* Spec:
-
-- "hsimpl": pareil, traite les crédits abstraitement (s'autorise donc à cancel
-  des crédits identiques syntaxiquement)
-
-- dans le cas général, hsimpl devient hsimpl + politique de traitement des crédits
-  + qui peut être définie globalement
-    (avec un ::= ltac? -> visibilité: pour garder ça local, le mettre dans une
-    section, ou utiliser "Local Ltac")
-  + ou passée en argument
-
-- hsimpl_credits: hsimpl + politique idoine passée en argument
-- hsimpl + "refine credits": hsimpl + politique idoine définie globalement
-  * <_> ==> single credit   ~>  inst
-  * <_> ==> no credit       ~>  inst w/ 0
-- par défaut, politique "auto" ?
-  ( context <_> -> refine credits | otherwise -> cas par défaut )
-*)
-
 (** refine credits *)
 
 Class GetFrame (h1 h2 frame : hprop) :=
@@ -706,64 +687,76 @@ Instance GetFrame_frame: forall h,
   GetFrame h \[] h.
 Proof. introv _. unfold GetFrame. now rewrite star_neutral_l. Qed.
 
-Class SplitFrameIfPresent (hsource htarget hsource' htarget' : hprop) :=
+Class SplitFrameIfPresent (lhs hsource htarget hsource' htarget' : hprop) :=
   MkSplitFrameIfPresent : hsource \* htarget = hsource' \* htarget'.
 
-Instance SplitFrameIfPresent_hasframe: forall hs hs' f H1 H2 ht hs'H1,
+Instance SplitFrameIfPresent_has_frame_lhs_emp: forall lhs hs hs' f ht htf,
+  IsNotEvar lhs ->
+  Unify lhs \[] ->
+  GetFrame hs hs' f ->
+  Star ht f htf ->
+  SplitFrameIfPresent lhs hs ht hs' htf.
+Proof.
+  introv _ ->. unfold GetFrame. intros ->. unfold Star. intros <-.
+  unfold SplitFrameIfPresent.
+  now rewrite <-star_assoc, (star_comm f).
+Qed.
+
+Instance SplitFrameIfPresent_hasframe: forall lhs hs hs' f H1 H2 ht hs'H1 htH2,
   GetFrame hs hs' f ->
   Unify f (H1 \* H2) ->
   Star hs' H1 hs'H1 ->
-  SplitFrameIfPresent hs ht hs'H1 (ht \* H2).
+  Star ht H2 htH2 ->
+  SplitFrameIfPresent lhs hs ht hs'H1 htH2
+| 20.
 Proof.
-  introv -> -> <-. unfold SplitFrameIfPresent.
+  introv -> ->. unfold Star. introv <- <-. unfold SplitFrameIfPresent.
   now rewrite <-!star_assoc, (star_comm H2).
 Qed.
 
-Instance SplitFrameIfPresent_noframe: forall hs ht,
-  SplitFrameIfPresent hs ht hs ht | 100.
+Instance SplitFrameIfPresent_noframe: forall lhs hs ht,
+  SplitFrameIfPresent lhs hs ht hs ht | 100.
 Proof. reflexivity. Qed.
 
-Lemma himpl_credits_subgoal: forall h1 h1' h2 h2' h2'' l1 l2 hc1 hc2 hc2',
+Class SplitGCIfPresent (hsource htarget hsource' htarget' : hprop) :=
+  MkSplitGCIfPresent : hsource \* htarget = hsource' \* htarget'.
+
+Instance SplitGCIfPresent_hasGC: forall hs hs' ht htGC,
+  RemoveGC hs hs' ->
+  Star ht \GC htGC ->
+  SplitGCIfPresent hs ht hs htGC.
+Proof.
+  introv -> <-. unfolds.
+  now rewrite <-!star_assoc, (star_comm _ \GC), (star_assoc \GC), GCGC_eq_GC.
+Qed.
+
+Instance SplitGCIfPresent_noGC: forall hs ht,
+  SplitGCIfPresent hs ht hs ht | 100.
+Proof. reflexivity. Qed.
+
+Lemma himpl_credits_subgoal: forall h1 h1' h2 h2' h2'' h2''' l1 l2 hc1 hc2 hc2' hc2'',
   GetCredits h1 h1' l1 ->
   GetCredits h2 h2' l2 ->
   CreditsHeap l1 hc1 ->
   CreditsHeap l2 hc2 ->
-  SplitFrameIfPresent h2' hc2 h2'' hc2' ->
-  h1' ==> h2'' ->
-  hc1 ==> hc2' ->
+  SplitFrameIfPresent h1' h2' hc2 h2'' hc2' ->
+  SplitGCIfPresent h2'' hc2' h2''' hc2'' ->
+  h1' ==> h2''' ->
+  hc1 ==> hc2'' ->
   h1 ==> h2.
 Proof.
-  introv -> -> -> -> -> HH1 HH2. hchange HH1. hchange HH2. hsimpl.
+  introv -> -> -> -> -> -> HH1 HH2. hchange HH1. hchange HH2. hsimpl.
 Qed.
 
+(* Fail if the goal does not contain credits, instead of producing a trivial
+   subgoal *)
 Ltac himpl_credits_subgoal :=
-  eapply himpl_credits_subgoal; [ once (typeclasses eauto) .. | | ].
+  match goal with |- _ ==> _ =>
+  match goal with |- context [ \$ _ ] =>
+    eapply himpl_credits_subgoal; [ once (typeclasses eauto) .. | | ]
+  end end.
 
 (********************)
-
-(* Hook for postprocessing actions (typically, to handle credits).
-
-   The default hook would be just [fail].
-
-   Here, we try to be a bit more clever, and enable the "refine" postprocessor
-   if the goal contains a [\$ ⟨_⟩]. This can be overriden by redefining the hook
-   (locally or not).
-
-   The postprocessor can also be set when calling the tactic (WIP), see below.
-   If a preprocessor is specified on the commandline, it will be used instead of
-   the global one.
-
-   FIXME: currently, if a preprocessor is manually specified BUT fails, the
-   global one will be used instead. We probably just want to do nothing instead.
-*)
-(* Ltac hsimpl_postprocess := *)
-(*   match goal with *)
-(*   | |- context [ \$ ⟨ _ ⟩ ] => postprocess_refine_auto_or_subgoal *)
-(*   end. *)
-Ltac hsimpl_postprocess :=
-  fail.
-
-(** *)
 
 (* These cleanup tactics are a bit ad-hoc. Maybe all of [hsimpl_cleanup] should
    be implemented in this style, instead of trying to minimize the diff and
@@ -781,63 +774,6 @@ Ltac cleanup_emp tt :=
 
 (* This is because HasGC might split the frame evar to introduce a \GC, and we
    might want to get rid of it afterwards.. *)
-Class RemoveGC (h h' : hprop) :=
-  MkRemoveGC : h = h' \* \GC.
-
-Hint Mode RemoveGC ! - : typeclass_instances.
-
-Instance RemoveGC_GC:
-  RemoveGC \GC \[].
-Proof. unfold RemoveGC. now rewrite star_neutral_l. Qed.
-
-Instance RemoveGC_star: forall h1 h1' h2 h2' h1h2',
-  RemoveGC h1 h1' ->
-  RemoveGC h2 h2' ->
-  Star h1' h2' h1h2' ->
-  RemoveGC (h1 \* h2) h1h2'.
-Proof.
-  introv -> -> <-. unfold RemoveGC.
-  now rewrite <-!star_assoc, (star_comm _ \GC), (star_assoc \GC), GCGC_eq_GC.
-Qed.
-
-Instance RemoveGC_star_l: forall h1 h1' h2 h1h2',
-  RemoveGC h1 h1' ->
-  Star h1' h2 h1h2' ->
-  RemoveGC (h1 \* h2) h1h2'
-| 20.
-Proof.
-  introv -> <-. unfold RemoveGC.
-  now rewrite <-!star_assoc, (star_comm _ \GC).
-Qed.
-
-Instance RemoveGC_star_r: forall h1 h2 h2' h1h2',
-  RemoveGC h2 h2' ->
-  Star h1 h2' h1h2' ->
-  RemoveGC (h1 \* h2) h1h2'
-| 20.
-Proof.
-  introv -> <-. unfold RemoveGC.
-  now rewrite <-!star_assoc, (star_comm _ \GC).
-Qed.
-
-(* Lemma cleanup_GC_lhs: forall h1 h1' h2 h2', *)
-(*   RemoveGC h1 h1' -> *)
-(*   RemoveGC h2 h2' -> *)
-(*   h1' ==> h2 -> *)
-(*   h1 ==> h2. *)
-(* Proof. *)
-(*   introv -> -> HH. rewrite <-GCGC_eq_GC at 2. xchange HH. hsimpl. *)
-(* Qed. *)
-
-(* Ltac cleanup_GC_lhs := *)
-(*   eapply cleanup_GC_lhs; [ once (typeclasses eauto) .. |]. *)
-
-(* Ltac hsimpl_setup process_credits ::= *)
-(*   prepare_goal_hpull_himpl tt; *)
-(*   try (check_arg_true process_credits; credits_join_left_repeat tt); *)
-(*   hsimpl_left_empty tt; *)
-(*   (* try cleanup_GC_lhs; (* New *) *) *)
-(*   apply hsimpl_start. *)
 
 Lemma hsimpl_cancel_GC_lhs : forall HL HL' HA HR,
   RemoveGC HL HL' ->
@@ -867,7 +803,7 @@ Ltac hsimpl_hook H ::=
 
   and does nothing on other goals.
 *)
-Ltac hsimpl_cleanup_after_postprocess :=
+Ltac hsimpl_cleanup_trysolve :=
   try apply pred_incl_refl;
   try hsimpl_hint_remove tt;
   try remove_empty_heaps_right tt;
@@ -875,28 +811,22 @@ Ltac hsimpl_cleanup_after_postprocess :=
   try apply hsimpl_gc;
   try affine.
 
-Ltac hsimpl_cleanup_with_postprocess postp :=
-  try apply hsimpl_stop;
-  try apply hsimpl_stop;
-  (* rewrite ?credits_zero_eq; (* New *) *)
-  try first [ postp | hsimpl_postprocess ]; (* New *)
-  (* The hook might emit several subgoals; as a first gap measure, only try to
-     call the cleanup stuff on goals that are heap implications. *)
-  try match goal with |- _ ==> _ =>
-    try cleanup_emp tt; (* New *)
-    (* try cleanup_GC_star_evar tt; (* New, very ad-hoc *) *)
-    (* If after running the hook there remain some ⟨_⟩, put the credits in a
-       separate goal, to avoid instantiating the frame with them (propagating
-       the \$ ⟨_⟩ in the frame is never something that we want to do). *)
-    try match goal with |- context [ \$ ⟨ _ ⟩ ] => himpl_credits_subgoal end;
-    [ hsimpl_cleanup_after_postprocess | .. ]
-  end.
-
-(* Note: this tactic might be applied to arbitrary goals produced from
-   side-conditions \[ P ] of the RHS, not only the main goal of the form
-   [_ ==> _]. FIXME? *)
 Ltac hsimpl_cleanup tt ::=
-  hsimpl_cleanup_with_postprocess fail.
+  try apply hsimpl_stop;
+  try apply hsimpl_stop;
+  try cleanup_emp tt;
+  try himpl_credits_subgoal;
+  match goal with
+  | |- context [ \$ ⟨ _ ⟩ ] =>
+    (* Avoid instantiating the frame with the credits in that case, and keep
+       them in a separate goal (propagating the \$ ⟨_⟩ in the frame is rarely
+       something that we want to do). *)
+       idtac
+  | |- _ ==> _ =>
+    hsimpl_cleanup_trysolve
+  | _ =>
+    idtac
+  end.
 
 Goal forall H1 H2 c2, exists c1 H3,
   H1 \* \$ ⟨c1⟩ ==> H2 \* \$ c2 \* H3.
@@ -909,15 +839,6 @@ Goal forall H1 c2, exists c1 H3,
 Proof.
   intros. do 2 eexists. hsimpl; [].
 Abort.
-
-(* hsimpl with postprocess argument *)
-Ltac hsimplpp_main postp :=
-  hsimpl_setup false;
-  (repeat (hsimpl_step false));
-  hsimpl_cleanup_with_postprocess postp.
-
-Ltac hsimplpp postp :=
-  hpull; intros; hsimplpp_main postp.
 
 (*************************)
 
@@ -1033,7 +954,7 @@ Ltac piggybank_credits_ineq :=
   [ once (typeclasses eauto) ..
   | set_Piggybank
   | try cleanup_GC_star_evar;
-    hsimpl_cleanup_after_postprocess
+    hsimpl_cleanup_trysolve
   ].
 
 Tactic Notation "piggybank:" "*" :=
@@ -1042,7 +963,7 @@ Tactic Notation "piggybank:" "*" :=
 Ltac piggybank_inst_0_credits_ineq :=
   eapply piggybank_inst_0_credits_ineq;
   [ once (typeclasses eauto) ..
-  | | try cleanup_GC_star_evar; hsimpl_cleanup_after_postprocess ].
+  | | try cleanup_GC_star_evar; hsimpl_cleanup_trysolve ].
 
 Tactic Notation "piggybank:" "*0" :=
   piggybank_inst_0_credits_ineq.
@@ -1096,27 +1017,6 @@ Tactic Notation "piggybank:" "*" "done" :=
 
 (*********************************)
 
-(* "Pay with piggybank" (safer strategy):
-   ⟨?c⟩ \* ... ==> \$ a \* \$ b \* ...  ~>  c := a + b
-
-   fails if there are other credits in the left-hand side
-*)
-
-Lemma pay_with_piggybank_if_only_credit: forall h1 h1' h2 h2' c1 l2 c2,
-  GetCreditsEvar h1 h1' c1 ->
-  HasNoCredits h1' ->
-  GetCredits h2 h2' l2 ->
-  AddIntList l2 c2 ->
-  Unify c1 c2 ->
-  h1' ==> h2' ->
-  h1 ==> h2.
-Proof.
-  introv -> _ -> -> -> H. xchange H. hsimpl.
-Qed.
-
-Ltac hsimplpp_pay_with_piggybank_if_only_credit :=
-  eapply pay_with_piggybank_if_only_credit; [ once (typeclasses eauto) .. |].
-
 (* "Pay with piggybank" (riskier):
    ⟨?c⟩ \* H1 ==> \$ a \* \$ b \* H2  ~>  c := a + b
 
@@ -1134,9 +1034,12 @@ Proof.
   introv -> -> -> -> H. xchange H. hsimpl.
 Qed.
 
-Ltac hsimplpp_pay_with_piggybank :=
-  eapply pay_with_piggybank; [ once (typeclasses eauto) .. |].
+Ltac piggybank_pay_rhs :=
+  eapply pay_with_piggybank; [ once (typeclasses eauto) .. |];
+  hsimpl_cleanup_trysolve.
 
+Tactic Notation "piggybank:" "*rhs" :=
+  piggybank_pay_rhs.
 
 (** current hsimpl_credits: join the lhs, substract the rhs *)
 
@@ -1156,19 +1059,33 @@ Proof.
   hchange HH. hsimpl.
 Qed.
 
-Ltac hsimplpp_substract_credits :=
+Ltac substract_credits :=
   match goal with |- context [ \$ _ ] =>
-    eapply substract_left_right_credits; [ once (typeclasses eauto) .. |]
+    eapply substract_left_right_credits; [ once (typeclasses eauto) .. |];
+    hsimpl_cleanup_trysolve
   end.
 
-(* TEMPORARY override hsimpl_credits *)
+(* TEMPORARY we can redefine hsimpl_credits as follows: *)
 
 Ltac hsimpl_credits_core ::=
-  hsimplpp hsimplpp_substract_credits.
+  hsimpl; try substract_credits.
 
-(*** *)
+(*****************************************)
 
-Ltac hsimpl_postprocess ::= hsimplpp_pay_with_piggybank.
+Ltac hcancel_autorefine_credits :=
+  hcancel; try piggybank: *rhs.
+
+Ltac hsimpl_autorefine_credits :=
+  hsimpl; try piggybank: *rhs.
+
+Ltac xapp_xapply_with_simpl K ::=
+  first
+  [ applys K  (* useful for specifications that are CF *)
+  | xapply_core K ltac:(fun _ => hsimpl_autorefine_credits) ltac:(fun _ => try xok) ].
+
+Ltac xapplys_base H ::=
+  xpull_check_not_needed tt;
+  xapply_core H ltac:(fun tt => hcancel_autorefine_credits) ltac:(fun tt => hsimpl_autorefine_credits).
 
 (*
 Class IntroCreditsFrame (h : hprop) :=

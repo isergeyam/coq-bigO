@@ -866,7 +866,7 @@ Lemma search_spec_balanced :
          POST (fun (_:Z) => \[])).
 Proof.
   xspecO_refine straight_line. intros t HB.
-  weaken. xapply search_spec. hsimpl. hsimpl.
+  weaken. xapplys search_spec.
   apply cost_monotonic. (* apply tree_height_bound. *)
   rewrite tree_height_bound. sets sz: (size t). reflexivity.
   assumption.

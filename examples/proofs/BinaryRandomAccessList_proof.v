@@ -402,7 +402,7 @@ Lemma cons_tree_spec :
        PRE (\$ cost (length L))
        POST (fun ts' => \[inv p ts' (T ++ L)])).
 Proof.
-  xspecO_refine straight_line. intros. weaken. xapply~ cons_tree_spec_aux.
+  xspecO_refine straight_line. intros. weaken. xapplys~ cons_tree_spec_aux.
   apply cost_monotonic. rewrite~ ts_bound_log. generalize (length L). reflexivity.
   cleanup_cost. monotonic. dominated.
 Qed.
@@ -478,7 +478,7 @@ Lemma uncons_tree_spec :
        POST (fun '(t', ts') =>
          \[exists T' L', btree p t' T' /\ inv p ts' L' /\ L = T' ++ L'])).
 Proof.
-  xspecO_refine straight_line. intros. weaken. xapply~ uncons_tree_spec_aux.
+  xspecO_refine straight_line. intros. weaken. xapplys~ uncons_tree_spec_aux.
   apply cost_monotonic. rewrite~ ts_bound_log. generalize (length L); reflexivity.
   cleanup_cost. monotonic. dominated.
 Qed.
@@ -541,8 +541,8 @@ Proof.
       forwards~: btree_length_correct B1; forwards~: btree_length_correct B2
     end. rew_list in Bi.
     xif; rewrites~ pow_succ_quot in *.
-    { xapply~ IHt1. hsimpl. apply~ Nth_app_l. }
-    { xapply~ IHt2. hsimpl. apply~ Nth_app_r'. math_lia. }
+    { xapplys~ IHt1. apply~ Nth_app_l. }
+    { xapplys~ IHt2. apply~ Nth_app_r'. math_lia. }
 
     rew_cost. subst. rewrite Z.max_l; swap 1 2.
     { forwards~ Hp: btree_size_pos. rewrite <-Hp. rew_cost. defer. defer. }
@@ -711,7 +711,7 @@ Proof.
   intro S.
   unfold lookup_spec_ind__external_forall, lookup_spec__final in *.
   specializes S 0 __. xspecO (fun len_L => cost S (Z.log2 (2 * len_L + 1))).
-  intros. weaken. xapply~ S. apply cost_monotonic. rewrite~ ts_bound_log. math.
+  intros. weaken. xapplys~ S. apply cost_monotonic. rewrite~ ts_bound_log. math.
   monotonic.
   { etransitivity. apply dominated_comp. apply cost_dominated.
     unfold product_positive_order. limit. dominated. }
@@ -817,7 +817,7 @@ Lemma lookup_spec :
        POST (fun x => \[Nth (abs i) L x])).
 Proof.
   xspecO (fun x => cost lookup_spec_ind (0, Z.log2 ((2 * x) + 1))).
-  { intros. weaken. xapply~ lookup_spec_ind.
+  { intros. weaken. xapplys~ lookup_spec_ind.
     apply cost_monotonic. splits~. unfold Rlist in *. rewrite~ ts_bound_log.
     math. }
 

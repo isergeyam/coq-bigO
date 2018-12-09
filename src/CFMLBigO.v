@@ -960,10 +960,17 @@ Ltac piggybank_credits_ineq :=
 Tactic Notation "piggybank:" "*" :=
   piggybank_credits_ineq.
 
+Ltac solve_trivial_ineq :=
+  match goal with
+  | |- 0 <= 0 => apply Z.le_refl
+  | |- 0 = 0 => apply eq_refl
+  end.
+
 Ltac piggybank_inst_0_credits_ineq :=
   eapply piggybank_inst_0_credits_ineq;
   [ once (typeclasses eauto) ..
-  | | try cleanup_GC_star_evar; hsimpl_cleanup_trysolve ].
+  | try solve_trivial_ineq
+  | try cleanup_GC_star_evar; hsimpl_cleanup_trysolve ].
 
 Tactic Notation "piggybank:" "*0" :=
   piggybank_inst_0_credits_ineq.

@@ -403,6 +403,38 @@ Proof.
   intros. nia.
 Qed.
 
+(* Dominated is compatible with min, for ultimately nonnegative functions *)
+
+Lemma dominated_min A f1 f2 g1 g2 :
+  ultimately A (fun (x:A) => 0 <= f1 x) ->
+  ultimately A (fun (x:A) => 0 <= f2 x) ->
+  ultimately A (fun (x:A) => 0 <= g1 x) ->
+  ultimately A (fun (x:A) => 0 <= g2 x) ->
+  dominated A f1 g1 ->
+  dominated A f2 g2 ->
+  dominated A (fun (x:A) => Z.min (f1 x) (f2 x)) (fun (x:A) => Z.min (g1 x) (g2 x)).
+Proof.
+  intros Pf1 Pf2 Pg1 Pg2 D1 D2.
+  forwards (c1 & c1_pos & U1): dominated_nonneg_const D1.
+  forwards (c2 & c2_pos & U2): dominated_nonneg_const D2.
+  exists (Z.max c1 c2).
+  revert Pf1 Pf2 Pg1 Pg2 U1 U2; filter_closed_under_intersection.
+  introv (? & ? & ? & ? & ? & ?). nia.
+Qed.
+
+Lemma dominated_min_distr A f g1 g2 :
+  dominated A f g1 ->
+  dominated A f g2 ->
+  dominated A f (fun (x:A) => Z.min (g1 x) (g2 x)).
+Proof.
+  intros D1 D2.
+  forwards (c1 & c1_pos & U1): dominated_nonneg_const D1.
+  forwards (c2 & c2_pos & U2): dominated_nonneg_const D2.
+  exists (Z.max c1 c2).
+  revert U1 U2; filter_closed_under_intersection.
+  introv (? & ?). nia.
+Qed.
+
 (* Domination is compatible with sum. *)
 
 Lemma dominated_sum A f1 f2 g1 g2 :
@@ -1304,8 +1336,10 @@ Hint Resolve dominated_mul_cst_r_1 : dominated.
 Hint Resolve dominated_mul_cst_l_2 : dominated.
 Hint Resolve dominated_mul_cst_r_2 : dominated.
 Hint Resolve dominated_max : dominated.
-Hint Resolve dominated_max_distr : dominated.
+Hint Resolve dominated_max_distr | 10 : dominated.
 Hint Resolve dominated_max_sum : dominated.
+Hint Resolve dominated_min : dominated.
+Hint Resolve dominated_min_distr | 10 : dominated.
 Hint Resolve dominated_sum_max : dominated.
 Hint Resolve dominated_sum : dominated.
 Hint Resolve dominated_sum_distr : dominated.

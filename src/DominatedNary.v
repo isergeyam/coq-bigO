@@ -96,6 +96,26 @@ Lemma dominated_max_distr_nary domain M f g h :
     (Fun' (fun p => Z.max (App f p) (App g p))) (Uncurry h).
 Proof. prove_nary dominated_max_distr. Qed.
 
+Lemma dominated_min_nary domain N f1 f2 g1 g2 :
+  ultimately (nFilterType domain N) (Fun' (fun p => 0 <= Generic.App f1 p)) ->
+  ultimately (nFilterType domain N) (Fun' (fun p => 0 <= Generic.App f2 p)) ->
+  ultimately (nFilterType domain N) (Fun' (fun p => 0 <= Generic.App g1 p)) ->
+  ultimately (nFilterType domain N) (Fun' (fun p => 0 <= Generic.App g2 p)) ->
+  dominated (nFilterType domain N) (Uncurry f1) (Uncurry g1) ->
+  dominated (nFilterType domain N) (Uncurry f2) (Uncurry g2) ->
+  dominated (nFilterType domain N)
+    (Fun' (fun p => Z.min (Generic.App f1 p) (Generic.App f2 p)))
+    (Fun' (fun p => Z.min (Generic.App g1 p) (Generic.App g2 p))).
+Proof. prove_nary dominated_min. Qed.
+
+Lemma dominated_min_distr_nary domain N f g1 g2 :
+  dominated (nFilterType domain N) (Uncurry f) (Uncurry g1) ->
+  dominated (nFilterType domain N) (Uncurry f) (Uncurry g2) ->
+  dominated (nFilterType domain N)
+    (Uncurry f)
+    (Fun' (fun p => Z.min (Generic.App g1 p) (Generic.App g2 p))).
+Proof. prove_nary dominated_min_distr. Qed.
+
 Lemma dominated_sum_distr_nary domain M f g h :
   dominated (nFilterType domain M) (Uncurry f) (Uncurry h) ->
   dominated (nFilterType domain M) (Uncurry g) (Uncurry h) ->
@@ -188,8 +208,12 @@ Hint Extern 2 (dominated _ _ (fun '(_, _) => Z.mul _ ?c)) =>
   apply_nary dominated_mul_cst_r_2_nary : dominated.
 Hint Extern 4 (dominated _ (fun '(_, _) => Z.max _ _) (fun '(_, _) => Z.max _ _)) =>
   apply_nary dominated_max_nary : dominated.
-Hint Extern 2 (dominated _ (fun '(_, _) => Z.max _ _) _) =>
+Hint Extern 10 (dominated _ (fun '(_, _) => Z.max _ _) _) =>
   apply_nary dominated_max_distr_nary : dominated.
+Hint Extern 4 (dominated _ (fun '(_, _) => Z.min _ _) (fun '(_, _) => Z.min _ _)) =>
+  apply_nary dominated_min_nary : dominated.
+Hint Extern 10 (dominated _ (fun '(_, _) => Z.min _ _) _) =>
+  apply_nary dominated_min_distr_nary : dominated.
 
 Hint Extern 4 (dominated _ (fun '(_, _) => Z.add _ _) (fun '(_, _) => Z.add _ _)) =>
   apply_nary dominated_sum_nary : dominated.

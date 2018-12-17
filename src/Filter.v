@@ -7,7 +7,7 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 Require Import LibRewrite.
-Require Import ZArith.
+Require Import ZArith Reals.
 Require Import Psatz.
 
 (* We could in principle perform this construction using [bool] instead of [Prop]
@@ -576,6 +576,30 @@ Proof.
     apply H1. lia. }
   { exists (x1 - x0)%Z. intros. apply H1. lia. }
 Qed.
+
+(* ---------------------------------------------------------------------------- *)
+
+(* The standard filter on [R]. *)
+
+Definition R_filterMixin : Filter.mixin_of R.
+Proof.
+  eapply Filter.Mixin with
+    (fun (P: R -> Prop) => exists x0, forall x, Rle x0 x -> P x).
+  - exists 0%R. eauto with arith.
+  - intros ? [x0 H]. exists x0. eapply H. lra.
+  - { introv [x0 H0] [x1 H1] H. exists (Rmax x0 x1).
+      intros x ?. apply H.
+      - apply H0. lets: Rmax_l x0 x1. lra.
+      - apply H1. lets: Rmax_r x0 x1. lra. }
+Defined.
+
+Definition R_filterType := FilterType R R_filterMixin.
+
+Lemma RP :
+  forall (P : R -> Prop),
+  ultimately R_filterType P =
+  exists x0, forall x, Rle x0 x -> P x.
+Proof. reflexivity. Qed.
 
 (* ---------------------------------------------------------------------------- *)
 

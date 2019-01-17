@@ -104,7 +104,7 @@ Proof.
   cut (k + n0 - cumul lo n0 f <= n). omega.
   rewrite <-N. big.
   close.
-Qed.
+Admitted.
 
 Lemma ultimately_ge_0_cumul_nonneg_Z :
   forall (f : Z -> Z -> Z) (lo : Z),

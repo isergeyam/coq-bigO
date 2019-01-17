@@ -232,7 +232,7 @@ Goal dominated Z_filterType (fun x => (x+0)+0) (fun x => x).
   { setoid_rewrite Z.add_0_r. admit. }
   rewrite_strat (topdown (hints myhints)).
   apply dominated_reflexive.
-Qed.
+Admitted.
 
 Goal dominated Z_filterType (fun x => x) (fun x => x+0).
   setoid_rewrite Z.add_0_r.
@@ -713,7 +713,7 @@ Lemma big_op_compat :
   forall (A : Type) op `{Unit A op, Commutative A op, Associative A op} f1 f2 (xs : list A),
   \big[op]_(x <- xs) (op (f1 x) (f2 x)) =
   op (\big[op]_(x <- xs) (f1 x)) (\big[op]_(x <- xs) (f2 x)).
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
 Lemma pack_forall_pair_eq :
   forall (A B C : Type) (P Q : A * B -> C),
@@ -1092,7 +1092,7 @@ Proof.
   math_apply (forall a b c d, a - b + d <= c -> a <= b + (c - d)).
   rewrite <-n0_le_n. big.
   close.
-Qed.
+Admitted.
 
 (* We could deduce a [dominated_big_sum] lemma for the one parameter case from
    [Product.dominated_big_sum], by instantiating [A] by [unit].

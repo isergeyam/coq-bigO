@@ -349,7 +349,7 @@ Proof.
   destruct UP as (n0 & N0 & HP). rewrite ZP.
   exists n0. intros n N. apply HP.
   admit. (* TODO *)
-Qed.
+Admitted.
 
 (* These variants combine [limit_comp] and [limit_pow_l]/[limit_pow_r]. This is
    useful in particular when added to an auto hint base. *)

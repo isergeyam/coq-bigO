@@ -26,7 +26,7 @@ Require Export HeapTactics.
 Lemma monotonic_cumul_Z : forall (f : Z -> Z) (lo : Z),
   (forall x, lo <= x -> 0 <= f x) ->
   monotonic Z.le Z.le (fun n => cumul lo n f).
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
 Hint Resolve monotonic_cumul_Z : monotonic.
 
@@ -216,7 +216,7 @@ Proof.
     - dominated. (* FIXME *) admit. }
   { eapply SpecO with cost; auto.
     intros. match goal with H : _ |- _ => rewrite H end. auto. }
-Qed.
+Admitted.
 
 (* TODO: implement using setoid-rewrite? *)
 Ltac dominated_cleanup_cost :=
@@ -350,7 +350,7 @@ Proof.
     - Monotonic.monotonic.
     - dominated.  (* FIXME *) admit. }
   { apply SpecO with (cost := cost0); auto. }
-Qed.
+Admitted.
 
 Lemma specO_refine_straight_line :
   forall (A : filterType) (le : A -> A -> Prop)

@@ -192,4 +192,4 @@ Lemma Zlog2_step : forall x,
   1 + Z.log2 (x÷2) = Z.log2 x.
 Proof.
   admit. (* TODO: prove from the log2_step in LibNatExtra? *)
-Qed.
+Admitted.

@@ -16,4 +16,5 @@ depends: [
   "coq" {>= "8.6"}
   "coq-tlc" {>= "20180316"}
   "coq-cfml" {>= "20180525"}
+  "coq-procrastination"
 ]

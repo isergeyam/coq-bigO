@@ -253,6 +253,14 @@ Section DominatedLaws.
 
 Implicit Types A : filterType.
 
+(* 0 is dominated by any function *)
+
+Lemma dominated_zero A f :
+  dominated A (fun _ : A => 0) f.
+Proof.
+  exists 0. apply filter_universe_alt. intros. nia.
+Qed.
+
 (* A constant is dominated by any other non-zero constant. *)
 
 Lemma dominated_cst A c1 c2 :
@@ -1327,6 +1335,7 @@ Qed.
 Hint Resolve dominated_reflexive : dominated.
 Hint Extern 1 (dominated _ (fun _ => ?a) (fun _ => ?b)) =>
   apply dominated_cst : dominated.
+Hint Resolve dominated_zero : dominated.
 Hint Resolve dominated_cst_id : dominated.
 Hint Resolve dominated_cst_limit | 2 : dominated.
 Hint Resolve dominated_mul : dominated.

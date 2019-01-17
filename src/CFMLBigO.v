@@ -213,10 +213,10 @@ Proof.
     - eapply contra with cost; auto with zarith.
     - auto with zarith.
     - Monotonic.monotonic.
-    - dominated. (* FIXME *) admit. }
+    - dominated. }
   { eapply SpecO with cost; auto.
     intros. match goal with H : _ |- _ => rewrite H end. auto. }
-Admitted.
+Qed.
 
 (* TODO: implement using setoid-rewrite? *)
 Ltac dominated_cleanup_cost :=
@@ -348,9 +348,9 @@ Proof.
     - eapply spec_contra with cost0; auto. math_lia.
     - math_lia.
     - Monotonic.monotonic.
-    - dominated.  (* FIXME *) admit. }
+    - dominated. }
   { apply SpecO with (cost := cost0); auto. }
-Admitted.
+Qed.
 
 Lemma specO_refine_straight_line :
   forall (A : filterType) (le : A -> A -> Prop)

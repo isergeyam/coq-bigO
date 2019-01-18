@@ -1298,7 +1298,7 @@ Ltac xif_guard_core H :=
 Tactic Notation "xif_guard" "as" ident(H) :=
   xif_guard_core H.
 Tactic Notation "xif_guard" :=
-  let H := fresh "C" in xif_guard as C.
+  let H := fresh "C" in xif_guard as H.
 
 (* xguard ***************************************)
 

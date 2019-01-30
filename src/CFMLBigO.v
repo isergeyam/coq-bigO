@@ -261,10 +261,20 @@ Ltac simple_cleanup_cost :=
 Ltac simple_cleanup_cost_eq :=
   simpl; simple_cleanup_cost.
 
-(* TODO: make it more robust *)
+Ltac destruct_pair x :=
+  let ty := type of x in
+  let ty := eval cbv in ty in
+  lazymatch ty with
+  | (_ * _)%type =>
+    let x1 := fresh "x" in
+    let x2 := fresh "x" in
+    destruct x as [x1 x2]; destruct_pair x1
+  | _ => idtac
+  end.
+
 Ltac intro_destructs :=
   let x := fresh "x" in
-  intro x; repeat (destruct x as [x ?]).
+  intro x; destruct_pair x.
 
 (********************************************************************)
 

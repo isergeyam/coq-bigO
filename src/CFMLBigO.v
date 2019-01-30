@@ -303,12 +303,12 @@ Ltac eexists_cost_expr A :=
 
 (********************************************************************)
 Definition close_cost (P : Type) := P.
-Definition hide_spec {A} (spec : (A -> Z) -> Prop) := spec.
+Definition ellipsis {A} (x: A) := x.
 (********************************************************************)
 
 Ltac try_prove_nonnegative :=
   first [
-      solve [ left; unfold hide_spec; spec_is_contravariant ]
+      solve [ left; unfold ellipsis; spec_is_contravariant ]
     | right
     ].
 
@@ -357,12 +357,12 @@ Lemma specO_refine_straight_line :
          (cost bound : A -> Z)
          (spec : (A -> Z) -> Prop),
     spec cost ->
-    cleanup_cost le cost bound (hide_spec spec) ->
+    cleanup_cost le cost bound (ellipsis spec) ->
     specO A le spec bound.
 Proof.
   introv H1 H2.
   forwards [[? ?] H]: cleanup_cost_alt H2.
-  unfold hide_spec in *. apply~ H.
+  unfold ellipsis in *. apply~ H.
 Qed.
 
 Lemma specO_refine_recursive :
@@ -376,23 +376,23 @@ Lemma specO_refine_recursive :
        Marker.group (P cost) ->
        spec cost) ->
     close_cost
-      ((forall cost, P' cost -> P cost) *
+      (ellipsis ((forall cost, P' cost -> P cost) *
        sigT (fun cost =>
          P' cost *
-         cleanup_cost le cost bound (hide_spec spec)))%type ->
+         cleanup_cost le cost bound (ellipsis spec))))%type ->
     specO A le spec bound.
 Proof.
   introv H1 H2.
   unfold close_cost in H2.
   destruct H2 as (? & cost & ? & c).
   forwards [[? ?] H]: cleanup_cost_alt c.
-  unfold hide_spec in *.
+  unfold ellipsis in *.
   pose proof Marker.group_fold.
   apply~ H.
 Qed.
 
 Ltac close_cost :=
-  unfold close_cost;
+  unfold close_cost; unfold ellipsis;
   split; [ solve [ introv_rec; hnf; cleanup_conj_goal_core ] |];
   hnf.
 
@@ -428,10 +428,7 @@ Tactic Notation "xspecO_refine" "straight_line" :=
 Tactic Notation "xspecO_refine" "recursive" :=
   xspecO_refine_recursive.
 
-Notation "'close'  'cost'" := (close_cost _) (at level 0).
-Tactic Notation "close" "cost" := close_cost.
-
-Notation "'(...)'" := (hide_spec _) (at level 0).
+Notation "'(...)'" := (ellipsis _) (at level 0).
 
 (* Notations for common [specO]s *)
 

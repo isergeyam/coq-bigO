@@ -105,7 +105,7 @@ Proof.
         apply Product.dominated_big_sum_bound.
         { ultimately_greater. } { monotonic. }
         simpl. dominated. } } }
-Qed.
+Admitted.
 
 Definition domain := (fun '(n,m) => m <= n ^ 2).
 

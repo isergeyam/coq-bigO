@@ -50,7 +50,7 @@ Proof.
 
   monotonic.
   dominated.
-Qed.
+Admitted.
 
 Lemma f_spec2 :
   specZ [cost \in_O (fun n => 2 ^ n)]
@@ -140,7 +140,7 @@ Proof.
   { xapp~. xapp~. }
 
   ring_simplify. generalize n N. defer.
-  close cost.
+  close_cost.
 
   begin defer assuming a b.
   defer Ha: (0 <= a).

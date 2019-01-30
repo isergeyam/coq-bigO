@@ -51,4 +51,4 @@ Proof.
     reflexivity. reflexivity. }
   ultimately_greater. apply~ filter_universe_alt.
   apply filter_universe_alt. monotonic. admit.
-Qed.
+Admitted.

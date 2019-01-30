@@ -225,7 +225,7 @@ Qed.
 
 (* move to tlc? *)
 Lemma Zdiv_le : forall a b: Z, (0 <= a) -> (1 <= b) -> (Z.div a b <= a).
-Proof. admit. Qed.
+Proof. admit. Admitted.
 
 Lemma ts_bound : forall a ts p L,
     @inv a p ts L ->
@@ -345,7 +345,7 @@ Proof.
     forwards: length_nonneg ts. rew_cost. rew_list.
     generalize (length ts); defer. }
 
-  close cost. begin defer assuming a b.
+  close_cost. begin defer assuming a b.
   exists (fun n => a * n + b). repeat split.
   { ring_simplify. defer. }
   { introv HH. rewrite <-HH; ring_simplify; defer. }
@@ -358,7 +358,7 @@ Proof.
 
   end defer.
   exists (cost link_spec tt + 1) 1. auto with zarith.
-Qed.
+Admitted.
 
 Lemma cons_tree_spec_aux' :
   specZ [cost \in_O (fun n => n)]
@@ -588,7 +588,7 @@ Proof.
     { (* XX *) cut (1 <= a). math_lia. defer. } }
   { deferred ?: (0 <= a). monotonic. } { dominated. }
   end defer. exists 1 1; omega.
-Qed.
+Admitted.
 
 Hint Extern 1 (RegisterSpec update_tree) => Provide (provide_specO update_tree_spec).
 
@@ -741,7 +741,7 @@ Proof.
     asserts~ [HH1 HH2]: (0 <= p /\ 0 <= length ts).
     repeat cases_max; generalize p (length ts) HH1 HH2; defer. }
 
-  close cost.
+  close_cost.
 
   (* ici on est un peu triste car les équations de récurrence (et la solution
      qu'il faut deviner) sont polluées par les fonctions de coût opaques pour

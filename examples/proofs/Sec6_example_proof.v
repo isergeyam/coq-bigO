@@ -47,11 +47,11 @@ Proof.
   induction_wf: (downto 1) n. intro N.
   xcf. weaken. xpay.
   xif_guard.
-  { xret~. }
+ { xret~. }
   { xapp. xapp. xapp~. }
 
   { generalize n N. defer. }
-  close cost.
+  close_cost.
 
   begin defer assuming a b.
   defer A: (0 <= a).
@@ -69,4 +69,4 @@ Proof.
   end defer.
   simpl. exists (cost g1_spec tt + cost g2_spec tt + 1) 1.
   splits; auto with zarith.
-Qed.
+Admitted.

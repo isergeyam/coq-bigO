@@ -118,4 +118,4 @@ Proof.
   { monotonic. intros ? ? H. destruct~ H. }
   { apply limit_sum_cst_r. limit. }
   { apply dominated_mul. dominated. dominated. }
-Qed.
+Admitted.

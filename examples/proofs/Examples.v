@@ -381,7 +381,7 @@ Proof.
     eapply ultimately_monotonic_of_monotonic.
     monotonic.
   }
-Qed.
+Admitted.
 
 (**
    WIP: attempts at abstracting the big-O cost of the inner loop, in the middle
@@ -420,7 +420,7 @@ Lemma xfor_inv_lemma_pred_refine :
   (For i = a To (b - 1) Do F i Done_) (\$ loop_cost \* H) (# I b \* H').
 Proof.
   admit.
-Qed.
+Admitted.
 
 (* ... *)
 Hypothesis dominated_big_sum_Z_alt :
@@ -472,7 +472,7 @@ Proof.
                   Pay_ ;; App tick tt;
                    Done_)  )
   *)
-  { abstract admit. }
+  { abstract skip. }
   hsimpl. hsimpl.
 
   cleanup_cost.
@@ -486,7 +486,7 @@ Proof.
     (* ... *)
     admit.
   }
-Qed.
+Admitted.
 
 Lemma looploop_spec'_alt :
   specO
@@ -526,7 +526,7 @@ Proof.
   (* { simpl. xspecO_refine straight_line. intros. xpay. *)
   (*   xfor_inv (fun (_:int) => \[]). admit. (* fixme *) intros. xpay. xapp. hsimpl. hsimpl. *)
   (*   cleanup_cost. simpl. monotonic. admit. (* ok *) } *)
-  { abstract admit. }
+  { abstract skip. }
 
   hsimpl. hsimpl.
   cleanup_cost.
@@ -549,7 +549,7 @@ Proof.
       { intro. (* argh *) hide_evars_then ltac:(fun _ => rewrite Z.pow_2_r).
         reflexivity. }
       dominated. } }
-Qed.
+Admitted.
 
 (*
 Lemma looploop_spec :
@@ -819,7 +819,7 @@ Proof.
   { ring_simplify. generalize n N. defer. }
   { generalize n N C. defer. }
 
-  close cost.
+  close_cost.
 
   simpl.
   begin defer assuming a b. exists (fun (n:Z_filterType) => a * n + b).

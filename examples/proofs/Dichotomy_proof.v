@@ -112,7 +112,7 @@ Proof.
 
   end defer.
   simpl. exists~ 3 4.
-Qed.
+Admitted.
 
 Lemma bsearch_spec2 :
   specZ [cost \in_O Z.log2]
@@ -157,7 +157,7 @@ Proof.
         generalize n HH. defer. }
   }
 
-  close cost.
+  close_cost.
 
   begin defer assuming a b.
   defer Ha: (0 <= a).
@@ -185,4 +185,4 @@ Proof.
 
   end defer.
   simpl. exists~ 3 4.
-Qed.
+Admitted.

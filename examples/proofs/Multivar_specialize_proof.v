@@ -137,7 +137,7 @@ Proof.
   { (* FIXME *) (*dominated.*) admit. }
   { apply_nary dominated_cst_limit_nary.
     apply product_positive_order_limit. }
-Qed.
+Admitted.
 
 (* TODO: make xapp_spec work with a specO *)
 Hint Extern 1 (RegisterSpec g) => Provide (provide_specO g_spec).
@@ -164,7 +164,7 @@ Proof.
     rewrite limitP. simpl. intros P UP. rewrite productP in UP. simpl in UP.
     destruct UP as (P1 & P2 & UP1 & UP2 & H). rewrite onP in UP1. revert UP2.
     filter_closed_under_intersection. auto with zarith. }
-Qed.
+Admitted.
 
 (*----------------------------------------------------------------------------*)
 
@@ -216,7 +216,7 @@ Proof.
   apply_nary dominated_sum_distr_nary.
   { (* FIXME dominated. *) admit. }
   { apply_nary dominated_cst_limit_nary. apply asymproduct_positive_order_limit. }
-Qed.
+Admitted.
 
 (* TODO: make xapp_spec work with a specO *)
 Hint Extern 1 (RegisterSpec g) => Provide (provide_specO g_spec').
@@ -243,7 +243,7 @@ Proof.
     rewrite limitP. simpl. intros P UP.
     unfold asymproduct_positive_order in UP. rewrite asymproductP in UP. simpl in UP.
     rewrite onP in UP. apply~ UP. }
-Qed.
+Admitted.
 
 (*----------------------------------------------------------------------------*)
 
@@ -302,7 +302,7 @@ Proof.
     apply dominated_reflexive.
   }
   { dominated. }
-Qed.
+Admitted.
 
 Lemma g_spec''' :
   forall (m:Z), 0 <= m ->
@@ -404,7 +404,7 @@ Proof.
   xret. hsimpl.
 
   generalize n m Hm Hn. defer.
-  close cost.
+  close_cost.
 
   begin defer assuming a b c. exists (fun '(m,n) => a * m + b * n + c).
   split.
@@ -428,7 +428,7 @@ Proof.
 
   end defer.
   exists 1 2 1. math.
-Qed.
+Admitted.
 
 (* -------------------------------------------------------------------------- *)
 
@@ -472,4 +472,4 @@ Proof.
     setoid_rewrite <-Z.add_assoc. apply dominated_sum_distr.
     { (* TODO: lemma *) exists m. rewrite positiveP. math_nia. }
     { reflexivity. } }
-Qed.
+Admitted.

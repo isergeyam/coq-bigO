@@ -41,6 +41,24 @@ Arguments dominated : clear implicits.
 (* This notion is analogous to [is_domin] in Coquelicot. *)
 
 (* -------------------------------------------------------------------------- *)
+(* Alternative definition, equivalent to [dominated]. *)
+
+Definition dominatedU A (f g : A -> Z) :=
+  ultimately Z_filterType (fun c =>
+    ultimately A (fun x => Z.abs (f x) <= c * Z.abs (g x))).
+
+Arguments dominatedU : clear implicits.
+
+Lemma dominated_eq_dominatedU A f g :
+  dominated A f g <-> dominatedU A f g.
+Proof.
+  split.
+  { intros [c U]. exists c. intros c' Hc'. revert U.
+    filter_closed_under_intersection. intros. nia. }
+  { intros [c U]. exists c. eauto with zarith. }
+Qed.
+
+(* -------------------------------------------------------------------------- *)
 
 (* The multiplicative constant of [dominated] can always be assumed to be
    non-negative.

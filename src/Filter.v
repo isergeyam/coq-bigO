@@ -6,6 +6,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Require Import ssreflect.
 Require Import LibRewrite.
 Require Import ZArith Reals.
 Require Import Psatz.
@@ -780,6 +781,105 @@ Qed.
 
 (* ---------------------------------------------------------------------------- *)
 
+Section FilterOr.
+
+Variable A : Type.
+Variable F1 F2 : Filter.mixin_of A.
+
+Definition or : Filter.filter A :=
+  fun P =>
+    exists P1 P2,
+    ultimately (FilterType A F1) P1 /\ ultimately (FilterType A F2) P2 /\
+    (forall a, P1 a \/ P2 a -> P a).
+
+Definition or_filterMixin : Filter.mixin_of A.
+Proof.
+  eapply Filter.Mixin with or.
+  { do 2 (eexists (fun _ => True)).
+    repeat split; apply filter_universe. }
+  { intros P (P1 & P2 & H1 & H2 & HH).
+    forwards [a1 ?] : filter_member_nonempty H1. eauto. }
+  { intros P Q R.
+    intros (P1 & P2 & uP1 & uP2 & HP).
+    intros (Q1 & Q2 & uQ1 & uQ2 & HQ).
+    intros HH.
+    exists (fun a1 => P1 a1 /\ Q1 a1).
+    exists (fun a2 => P2 a2 /\ Q2 a2).
+    repeat split; try apply filter_conj; eauto.
+    intros a [[? ?]|[? ?]]; apply HH; eauto. }
+Defined.
+
+Definition or_filterType :=
+  FilterType A or_filterMixin.
+
+End FilterOr.
+
+Section FilterOrP.
+
+Variable A1 A2 : filterType.
+
+Definition orp : Filter.filter (A1 * A2) :=
+  fun P =>
+    exists P1 P2,
+    ultimately A1 P1 /\ ultimately A2 P2 /\
+    (forall a1 a2, P1 a1 -> P (a1, a2)) /\
+    (forall a1 a2, P2 a2 -> P (a1, a2)).
+
+Definition orp_filterMixin : Filter.mixin_of (A1 * A2).
+Proof.
+  eapply Filter.Mixin with orp.
+  { do 2 (eexists (fun _ => True)).
+    repeat split; apply filter_universe. }
+  { intros P (P1 & P2 & H1 & H2 & HP1 & HP2).
+    forwards [ a1 H1' ] : filter_member_nonempty H1.
+    forwards [ a2 H2' ] : filter_member_nonempty H2.
+    exists (a1, a2). eauto. }
+  { intros P Q R.
+    intros (P1 & P2 & uP1 & uP2 & HP1 & HP2).
+    intros (Q1 & Q2 & uQ1 & uQ2 & HQ1 & HQ2).
+    intros HH.
+    exists (fun a1 => P1 a1 /\ Q1 a1).
+    exists (fun a2 => P2 a2 /\ Q2 a2).
+    repeat split; try apply filter_conj; eauto.
+    all: intros; unpack; eauto. }
+Defined.
+
+Definition orp_filterType :=
+  FilterType (A1 * A2) orp_filterMixin.
+
+End FilterOrP.
+
+Lemma orp_equiv_or_product : forall (A1 A2: filterType) P `{IA1: Inhab A1} `{IA2: Inhab A2},
+  ultimately (orp_filterType A1 A2) P <->
+  ultimately
+    (@or_filterType (A1 * A2)
+       (product_filterMixin (everywhere_filterType A1) A2)
+       (product_filterMixin A1 (everywhere_filterType A2)))
+    P.
+Proof.
+  intros. split.
+  { intros (P1 & P2 & uP1 & uP2 & H1 & H2). cbn. unfold or.
+    eexists (fun '(_, a2) => P2 a2).
+    eexists (fun '(a1, _) => P1 a1). cbn. repeat split.
+    - exists (fun _:A1 => True) P2. repeat split; eauto.
+    - exists P1 (fun _:A2 => True). repeat split; eauto.
+    - intros [? ?] [?|?]; eauto. }
+  { intros (P1 & P2 & uP1 & uP2 & HH).
+    rewrite -/(product_filterType (everywhere_filterType A1) A2) in uP1.
+    rewrite -/(product_filterType A1 (everywhere_filterType A2)) in uP2.
+    cbn in HH, P1, P2. cbn. unfold orp.
+    exists (fun a1 => forall a2, P2 (a1, a2)).
+    exists (fun a2 => forall a1, P1 (a1, a2)). repeat split; eauto.
+    { destruct uP2 as (P21 & P22 & U21 & U22 & H2).
+      rewrite everywhereP in U22. revert U21.
+      filter_closed_under_intersection. eauto. }
+    { destruct uP1 as (P11 & P12 & U11 & U12 & H1).
+      rewrite everywhereP in U11. revert U12.
+      filter_closed_under_intersection. eauto. } }
+Qed.
+
+(* ---------------------------------------------------------------------------- *)
+
 Section FilterAsymProduct.
 
 Variable A1 A2 : filterType.
@@ -866,6 +966,35 @@ Qed.
 End Often.
 
 Arguments often : clear implicits.
+
+(* ---------------------------------------------------------------------------- *)
+
+Section InvImage.
+  Variable B : filterType.
+  Variable A : Type.
+
+  Variable f : A -> B.
+
+  Hypothesis often_invf :
+    often B (fun b => exists a, f a = b).
+
+  Definition invimage : Filter.filter A :=
+    fun P => ultimately B (fun b => forall a, f a = b -> P a).
+
+  Definition invimage_filterMixin : Filter.mixin_of A.
+  Proof.
+    eapply Filter.Mixin with invimage.
+    { unfold invimage. eauto using filter_universe_alt. }
+    { intros ? I. unfold invimage in I. unfold often in often_invf.
+      specializes often_invf I. destruct often_invf as [b [[a ?] ?]].
+      eauto. }
+    { intros P1 P2 P I1 I2 HH. revert I1 I2. unfold invimage.
+      filter_closed_under_intersection. intros ? [? ?]. eauto. }
+  Defined.
+
+  Definition invimage_filterType := FilterType A invimage_filterMixin.
+
+End InvImage.
 
 (* ---------------------------------------------------------------------------- *)
 

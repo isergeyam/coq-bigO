@@ -89,6 +89,90 @@ Qed.
 
 Hint Extern 1 (RegisterSpec tick3) => Provide (provide_specO tick3_spec).
 
+Lemma credits_move_post : forall A (F:~~A) c Q,
+  is_local F ->
+  F \[] (Q \*+ \$ (-c)) ->
+  F (\$ c) Q.
+Proof.
+  introv HL HF. xframe (\$ c). apply HF. intros ?.
+  hsimpl. rewrite credits_join_eq, Z.add_opp_diag_r, credits_zero_eq.
+  hsimpl.
+Qed.
+
+Lemma tick3_spec2 :
+  specO
+    unit_filterType eq
+    (fun cost =>
+       app tick3 [tt]
+           PRE (\$ cost tt)
+           POST (fun (tt:unit) => \[]))
+    (fun tt => 1).
+Proof.
+  xspecO_refine recursive. intros. xcf.
+  (* apply credits_move_post; [ xlocal |]. *)
+  xpay.
+  match goal with |- ?H ==> _ =>
+    apply pred_incl_trans with (H \* \$ 0);
+    only 1: rewrite credits_zero_eq; hsimpl
+  end.
+  asserts_rewrite~ (0 = 1 + -1). rewrite <-credits_join_eq. hsimpl.
+  xapp.
+  match goal with |- ?H ==> _ =>
+    apply pred_incl_trans with (H \* \$ 0);
+    only 1: rewrite credits_zero_eq; hsimpl
+  end.
+  asserts_rewrite~ (0 = 1 + -1). rewrite <-credits_join_eq. hsimpl.
+  xapp.
+  match goal with |- ?H ==> _ =>
+    apply pred_incl_trans with (H \* \$ 0);
+    only 1: rewrite credits_zero_eq; hsimpl
+  end.
+  asserts_rewrite~ (0 = 1 + -1). rewrite <-credits_join_eq. hsimpl.
+  xapp.
+  match goal with |- ?H ==> _ =>
+    apply pred_incl_trans with (H \* \$ 0);
+    only 1: rewrite credits_zero_eq; hsimpl
+  end.
+  asserts_rewrite~ (0 = 1 + -1). rewrite <-credits_join_eq.
+
+  (* (*!*) hsimpl *)
+  rewrite !credits_join_eq. hsimpl_credits. rewrite le_zarith.
+  ring_simplify. defer.
+
+  close_cost.
+Abort.
+
+(*
+Lemma tick3_spec2 :
+  specO
+    unit_filterType eq
+    (fun cost =>
+       app tick3 [tt]
+           PRE (\$ cost tt)
+           POST (fun (tt:unit) => \[]))
+    (fun tt => 1).
+Proof.
+  xspecO_refine recursive. intros. xcf.
+  (* apply credits_move_post; [ xlocal |]. *)
+  xpay.
+
+
+  instantiate (1 := (\$ (-1)) \* _).
+  rewrite star_assoc.
+  rewrite credits_join_eq, Z.add_opp_diag_r, credits_zero_eq. hsimpl.
+  xapp.
+  instantiate (1 := \$ (-1) \* _).
+  rewrite star_assoc.
+  rewrite (credits_join_eq 1), Z.add_opp_diag_r, credits_zero_eq. hsimpl.
+  xapp.
+  instantiate (1 := \$ (-1) \* _).
+  rewrite (star_assoc (\$ 1)).
+  rewrite (credits_join_eq 1), Z.add_opp_diag_r, credits_zero_eq. hsimpl.
+  xapp.
+  hsimpl_credits. rewrite le_zarith.
+  ring_simplify.
+*)
+
 (* [tick3 ()]: prove the same specification, this time using the mechanism to
    refine cost functions semi-automatically.
 
@@ -856,6 +940,7 @@ Hypothesis tree_height_bound : forall (t: tree),
   balanced t ->
   height t <= Z.log2 (size t).
 
+Hypothesis height_nonneg : forall t, 0 <= height t.
 
 Lemma search_spec_balanced :
   specZ [cost \in_O (fun n => Z.log2 n)]
@@ -871,5 +956,181 @@ Proof.
   rewrite tree_height_bound. sets sz: (size t). reflexivity.
   assumption.
 
-  cleanup_cost.  monotonic. dominated.
+  cleanup_cost. monotonic. dominated.
+Qed.
+
+(**********)
+
+Parameter search_spec' :
+  specO (@invimage_filterType Z_filterType tree height) eq
+    (fun cost => forall (t: tree),
+       app search [t]
+         PRE (\$ cost t)
+         POST (fun (_:Z) => \[]))
+    (fun x => height x).
+
+Parameter search_spec'' :
+  specO (@invimage_filterType Z_filterType tree size) eq
+    (fun cost => forall (t: tree),
+       app search [t]
+         PRE (\$ cost t)
+         POST (fun (_:Z) => \[]))
+    (fun x => height x).
+
+Lemma search_spec_balanced' :
+  specO (within_filterType (@invimage_filterType Z_filterType tree height) balanced) eq
+    (fun cost => forall (t: tree),
+       balanced t ->
+       app search [t]
+         PRE (\$ cost t)
+         POST (fun (_:Z) => \[]))
+    (fun x => Z.log2 (size x)).
+Proof.
+  xspecO_refine straight_line. intros. xapplys search_spec'.
+  try apply cleanup_cost_tagged.
+  match goal with |- @cleanup_cost ?A _ ?cost _ _ =>
+    unfold cleanup_cost; do 2 (eexists_cost_expr A);
+    subst cost;
+    split; [| reflexivity];
+    split; [| apply dominated_reflexive];
+    split; [| try_prove_nonnegative];
+    split
+  end.
+  monotonic.
+  etransitivity.
+  { eapply dominated_comp_eq. apply (cost_dominated search_spec').
+    2: reflexivity. 2: reflexivity.
+    cbn. rewrite limitP. intros ? H. rewrite withinP. revert H.
+    filter_closed_under_intersection. eauto. }
+
+  apply dominated_ultimately_le.
+  rewrite withinP, invimageP. eexists (fun _ => True).
+  split; auto using filter_universe. intros.
+  rewrite Z.abs_eq; [| apply height_nonneg].
+  rewrite Z.abs_eq; [| apply Z.log2_nonneg].
+  apply~ tree_height_bound.
+Qed.
+
+Lemma invimage_mono_finer : forall A f g,
+  (forall a, f a <= g a) ->
+  finer (invimage Z_filterType A f) (invimage Z_filterType A g).
+Proof.
+  introv Hfg Uf. unfold invimage in *. destruct Uf as [Q [UQ HQ]].
+  destruct UQ as [n0 Hn].
+  exists (fun x => n0 <= x /\ Q x). split.
+  { exists n0. eauto. }
+  introv [? ?]. apply HQ. apply Hn. transitivity (f a). 2: apply Hfg. auto.
+Qed.
+
+Goal ultimately (invimage_filterType Z_filterType tree (fun _ => 0)) (fun t => 1 <= size t).
+  apply invimage_mono_finer with size.
+  admit.
+  cbn.
+  unfold invimage. exists (fun n => 1 <= n). split. apply ultimately_ge_Z.
+  auto.
+Admitted.
+
+Goal ultimately (invimage_filterType Z_filterType tree (fun _ => 0)) (fun t => 1 <= size t).
+  rewrite invimageP.
+  exists (fun n:Z => 1 <= n). split. apply ultimately_ge_Z. eauto with zarith.
+Qed.
+
+Lemma search_spec_balanced'' :
+  specO (within_filterType (@invimage_filterType Z_filterType tree size) balanced) eq
+    (fun cost => forall (t: tree),
+       balanced t ->
+       app search [t]
+         PRE (\$ cost t)
+         POST (fun (_:Z) => \[]))
+    (fun x => Z.log2 (size x)).
+Proof.
+  xspecO_refine straight_line. intros. xapplys search_spec''.
+  try apply cleanup_cost_tagged.
+  match goal with |- @cleanup_cost ?A _ ?cost _ _ =>
+    unfold cleanup_cost; do 2 (eexists_cost_expr A);
+    subst cost;
+    split; [| reflexivity];
+    split; [| apply dominated_reflexive];
+    split; [| try_prove_nonnegative];
+    split
+  end.
+  monotonic.
+  etransitivity.
+  { eapply dominated_comp_eq. apply (cost_dominated search_spec'').
+    3: reflexivity. 2: reflexivity. cbn. rewrite limitP.
+    intros ? H. rewrite withinP. revert H. filter_closed_under_intersection. auto. }
+  cbn.
+  apply dominated_ultimately_le.
+  rewrite withinP, invimageP. eexists (fun _ => True).
+  split; auto using filter_universe. intros.
+  rewrite Z.abs_eq; [| apply height_nonneg].
+  rewrite Z.abs_eq; [| apply Z.log2_nonneg].
+  apply~ tree_height_bound.
+Qed.
+
+(**********)
+
+Parameter array_append : func.
+
+Notation "'len'" := (LibListZ.length).
+
+Definition array_append_sum :=
+  specZ [cost \in_O (fun n => n)]
+    (forall (A: Type) (a1 a2: list A),
+       app array_append [a1 a2]
+         PRE (\$ cost (len a1 + len a2))
+         POST (fun (_:list A) => \[])).
+
+Definition array_append_2 :=
+  specO
+    (product_filterType Z_filterType Z_filterType) ZZle
+    (fun cost => forall (A: Type) (a1 a2: list A),
+      app array_append [a1 a2]
+        PRE (\$ cost (len a1, len a2))
+        POST (fun (_:list A) => \[]))
+    (fun '(m, n) => m + n).
+
+Goal array_append_sum -> array_append_2.
+  unfold array_append_sum, array_append_2. intro S.
+  xspecO (fun '(m, n) => cost S (m + n)).
+  { intros. xapply~ S. }
+  { intros [m n] [m' n'] [? ?]. apply (cost_monotonic S). math. }
+  { eapply dominated_comp_eq with (f:=cost S) (p:=(fun '(m,n)=>m+n)).
+    now eapply cost_dominated. now limit. all: now intros [? ?]; eauto. }
+Qed.
+
+(**********)
+
+Parameter fn : func.
+Parameter g : Z * Z -> Z.
+
+Definition S2 :=
+  specO
+    (product_filterType Z_filterType Z_filterType) ZZle
+    (fun cost => forall (m n: Z),
+      app fn [m n]
+        PRE (\$ cost (m, n))
+        POST (fun (_:unit) => \[]))
+    g.
+
+Definition S :=
+  specZ [cost \in_O (fun n => n)]
+    (forall (m n: Z),
+       app fn [m n]
+         PRE (\$ cost (g (m, n)))
+         POST (fun (_:unit) => \[])).
+
+Goal
+  monotonic ZZle Z.le g ->
+  limit (product_filterType Z_filterType Z_filterType) Z_filterType g ->
+  S ->
+  S2.
+  unfold S, S2. intros Mg Lg S.
+  xspecO (fun '(m, n) => cost S (g (m, n))).
+  { intros. xapply~ S. }
+  { intros [m n] [m' n'] [? ?].
+    apply (cost_monotonic S). apply Mg. unfold ZZle. math. }
+  { eapply dominated_comp_eq with (f:=cost S) (p:=g).
+    now eapply cost_dominated. now limit.
+    all: intros [? ?]; eauto. }
 Qed.

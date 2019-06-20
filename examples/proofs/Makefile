@@ -50,6 +50,8 @@ SOURCES := \
   multivar_specialize.ml \
   dependent_nested.ml \
   BinaryRandomAccessList.ml \
+	composing_specs.ml \
+	mccarthy.ml \
 #	merge_sort.ml
 
 CF := $(PWD)/_cf

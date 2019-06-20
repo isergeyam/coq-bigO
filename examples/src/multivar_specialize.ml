@@ -7,6 +7,9 @@ let f n = g (0, n)
 
 (*---------------*)
 
+(* même nature que concaténation de tableaux (..) *)
+(* ou produit cartésien sur les listes... *)
+
 let rec f2 m n =
   if n > 0 then f2 (m+1) (n-1)
   else if m > 0 then f2 (m-1) 0
@@ -27,3 +30,5 @@ let g2_2 m = f2 m 0
 
 let g3_1 n = f3 0 n
 let g3_2 m = f3 m 0
+
+(*---------------*)

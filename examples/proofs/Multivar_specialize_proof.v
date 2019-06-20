@@ -467,3 +467,19 @@ Proof.
     { (* TODO: lemma *) exists m. rewrite positiveP. math_nia. }
     { reflexivity. } }
 Admitted.
+
+(* -------------------------------------------------------------------------- *)
+
+Goal
+  forall f,
+  forall (M : Filter.mixin_of (Z * Z)%type),
+  dominated (FilterType _ M) (fun '(_,_) => 1) (fun '(m,n) => f m n) <->
+  ultimately (FilterType _ M) (fun '(m,n) => 1 <= Z.abs (f m n)).
+Proof.
+  intros. split.
+  { intros D. destruct (dominated_nonneg_const D) as [k [K U]].
+    revert U. filter_closed_under_intersection. intros [x y].
+    rewrite Z.abs_eq by math. math_nia. }
+  { intro U. exists 1. revert U. filter_closed_under_intersection.
+    intros [x y]. math_nia. }
+Qed.

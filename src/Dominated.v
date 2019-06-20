@@ -60,6 +60,14 @@ Qed.
 
 (* -------------------------------------------------------------------------- *)
 
+Lemma dominated_finer A (F1 F2: Filter.mixin_of A) (f g : A -> Z) :
+  finer (Filter.ultimately F1) (Filter.ultimately F2) ->
+  dominated (FilterType A F2) f g ->
+  dominated (FilterType A F1) f g.
+Proof. intros HF [c U]. exists c. now apply HF. Qed.
+
+(* -------------------------------------------------------------------------- *)
+
 (* The multiplicative constant of [dominated] can always be assumed to be
    non-negative.
 *)
@@ -757,6 +765,26 @@ Ltac math_apply P :=
   asserts_applys P; [ intros; omega | .. ].
 
 (* ---------------------------------------------------------------------------- *)
+
+Definition Oex (f g : Z * Z -> Z) :=
+  exists c n0, forall x y, n0 <= x \/ n0 <= y -> Z.abs (f (x, y)) <= c * Z.abs (g (x, y)).
+
+Goal forall f g,
+  Oex f g <->
+  dominated (orp_filterType Z_filterType Z_filterType) f g.
+Proof.
+  intros f g. split.
+  { intros [c [n0 HU]]. exists c. unfold orp_filterType. cbn. unfold or.
+    do 2 exists (fun n => n0 <= n).
+    do 2 (split; [ now apply ultimately_ge_Z |]). split; intros; apply HU; eauto. }
+  { intros [c HU]. unfold orp_filterType in HU. cbn in HU. unfold or in HU.
+    exists c. destruct HU as [P1 [P2 (U1 & U2 & H1 & H2)]]. rewrite ZP in U1, U2.
+    destruct U1 as [n1 U1]. destruct U2 as [n2 U2]. exists (Z.max n1 n2).
+    intros x y [Hxy|Hxy]; eauto with zarith. }
+Qed.
+
+(* ---------------------------------------------------------------------------- *)
+
 
 Section ProductLaws.
 

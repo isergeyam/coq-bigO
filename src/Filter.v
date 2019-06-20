@@ -431,6 +431,37 @@ End Singleton.
 
 (* ---------------------------------------------------------------------------- *)
 
+Section Order.
+
+Variable A : Type.
+Variable le : A -> A -> Prop.
+Hypothesis IA : Inhab A.
+Hypothesis upper_bound : forall x y : A, exists z, le x z /\ le y z.
+Hypothesis le_trans : forall x y z, le x y -> le y z -> le x z.
+
+Definition order : Filter.filter A :=
+  fun P => exists x0, forall x, le x0 x -> P x.
+
+Definition order_filterMixin : Filter.mixin_of A.
+Proof.
+  eapply Filter.Mixin with order.
+  - unfold order. exists arbitrary. eauto.
+  - introv [x1 H1] [x2 H2] HH. destruct (upper_bound x1 x2) as (z & Hz1 & Hz2).
+    exists z. intros. eauto 10 using le_trans.
+Defined.
+
+Definition order_filterType := FilterType A order_filterMixin.
+
+Lemma orderP :
+  forall (P : A -> Prop),
+  ultimately order_filterType P =
+  exists x0, forall x, le x0 x -> P x.
+Proof. reflexivity. Qed.
+
+End Order.
+
+(* ---------------------------------------------------------------------------- *)
+
 (* The standard filter on [nat]. *)
 
 Definition nat_filterMixin : Filter.mixin_of nat.

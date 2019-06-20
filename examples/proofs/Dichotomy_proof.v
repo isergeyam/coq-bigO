@@ -14,6 +14,7 @@ Require Import LibZExtra.
 (* Load the custom CFML tactics with support for big-Os *)
 Require Import CFMLBigO.
 Require Import Procrastination.Procrastination.
+Require Import elia.
 (* Load the CF definitions. *)
 Require Import Dichotomy_ml.
 
@@ -143,6 +144,7 @@ Proof.
     { (* forwards: IH __ (m+1) j. Focus 2. reflexivity. *)
       weaken. xapp~ (j - (m+1)). subst m. reflexivity. }
 
+    rew_cost.
     cases_if; ring_simplify.
     { assert (HH: n <= 0) by math. generalize n HH. defer. }
     { defer ?: (forall n, 0 <= costf n).
@@ -176,13 +178,12 @@ Proof.
   cleanup_cost.
   { intros x y H. cases_if; case_if~.
     { monotonic. }
-    { rewrite <-Z.log2_nonneg. ring_simplify. defer. } }
+    { rewrite <-Z.log2_nonneg. ring_simplify. deferred; math. } }
   { rewrite dominated_ultimately_eq; swap 1 2.
       rewrite ZP. exists 1. intros. cases_if~. reflexivity.
       apply dominated_sum_distr; dominated.
       (* FIXME; dominated alone should work *)
   }
 
-  end defer.
-  simpl. exists~ 3 4.
+  end defer. elia.
 Admitted.

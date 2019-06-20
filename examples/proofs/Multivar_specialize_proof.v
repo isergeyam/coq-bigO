@@ -128,7 +128,7 @@ Proof.
     hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
 
   cleanup_cost.
-  admit.
+  { (* dummy *) unfold monotonic. intros ? ? ->. reflexivity. }
 
   apply_nary dominated_sum_distr_nary.
   { (* FIXME *) (*dominated.*) admit. }
@@ -153,7 +153,7 @@ Lemma f_spec :
 Proof.
   xspecO_refine straight_line. xcf. xpay. xapp~.
   cleanup_cost.
-  admit.
+  { (* dummy *) unfold monotonic. intros ? ? ->. math. }
   { dominated.
     eapply dominated_comp_eq. applys cost_dominated g_spec.
     2: intros; reflexivity.

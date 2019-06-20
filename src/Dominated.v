@@ -792,15 +792,15 @@ Module Product.
    I.e, [f] really has to be monotonic starting at the summation index.
 
    For example, if we take:
-     f (a, x) = x if x > 10, -a*x + 20 otherwise
+     f (a, x) = 2^a if x = 0, x otherwise
      g (a, x) = x
 
    then:
      - dominated f g holds
      - for all a, f is monotonic for x big enough
-     - however, for a fixed x > 10 and a going to infinity, Σf (a, x) goes
-       to infinity while Σg (a, x) remains constant.
+     - Σf (a, x) is equal to x2^a while Σg (a, x) is O(x²).
 *)
+
 Lemma dominated_big_sum :
   forall (A: filterType) (f g : A -> Z -> Z) (lo : Z),
   ultimately A (fun a => forall i, lo <= i -> 0 <= f a i) ->

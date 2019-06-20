@@ -83,14 +83,11 @@ Proof.
   specializes H n0 ___. repeat (rewrite~ Z.abs_eq in H). math_lia.
 Qed.
 
-Lemma positive_inhab : exists x, 0 <= x.
-Proof. exists 0. math. Qed.
-
 (*----------------------------------------------------------------------------*)
 
 (* Symmetric product restricting 0 <= m : Works *)
 Notation product_positive_order :=
-  (product_filterType (on_filterType positive_inhab) Z_filterType) (only parsing).
+  (product_filterType (on_filterType (Z.le 0)) Z_filterType) (only parsing).
 
 Lemma product_positive_order_limit :
   limit product_positive_order Z_filterType
@@ -164,13 +161,13 @@ Proof.
     rewrite limitP. simpl. intros P UP. rewrite productP in UP. simpl in UP.
     destruct UP as (P1 & P2 & UP1 & UP2 & H). rewrite onP in UP1. revert UP2.
     filter_closed_under_intersection. auto with zarith. }
-Admitted.
+Qed.
 
 (*----------------------------------------------------------------------------*)
 
 (* Asymmetric product restricting 0 <= m : Also works *)
 Definition asymproduct_positive_order :=
-  (asymproduct_filterType (on_filterType positive_inhab) Z_filterType).
+  (asymproduct_filterType (on_filterType (Z.le 0)) Z_filterType).
 
 Lemma asymproduct_positive_order_limit :
   limit asymproduct_positive_order Z_filterType
@@ -258,10 +255,8 @@ Admitted.
 *)
 
 (* We can do this... or directly have a univariate specO, as below. *)
-Definition product_singleton_order (m : Z) : filterType.
-  refine (product_filterType (@on_filterType _ (fun x => x = m) _) Z_filterType).
-  abstract (exists m; reflexivity).
-Defined.
+Definition product_singleton_order (m : Z) : filterType :=
+  product_filterType (on_filterType (fun x => x = m)) Z_filterType.
 
 Lemma g_spec'' :
   forall m,
@@ -349,10 +344,9 @@ Definition f2_spec_forallF :=
         POST (fun (_:unit) => \[]))
     (fun '(m,n) => m + n + 1).
 
-Definition positive_ZZ_filterType : filterType.
-  refine (@on_filterType (Z*Z) (fun '(m,n) => 0 <= m /\ 0 <= n) _).
-  abstract (exists (0,0)%Z; simpl; math).
-Defined.
+Definition positive_ZZ_filterType :=
+  @on_filterType (Z*Z) (fun '(m,n) => 0 <= m /\ 0 <= n).
+
 
 Definition f2_spec_on_positives :=
   specO positive_ZZ_filterType eq (* dummy *)

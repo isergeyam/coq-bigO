@@ -21,7 +21,7 @@ Notation pred A := (A -> Prop) (only parsing).
 
 Module Filter.
 
-(* Technically, a filter is a nonempty set of nonempty subsets of A, which is
+(* Technically, a filter is a nonempty set of subsets of A, which is
    closed under inclusion and (finite) intersection. *)
 
 Definition filter A := pred (pred A).
@@ -43,14 +43,6 @@ Record mixin_of (A : Type) := Mixin {
 
   _ :
     ultimately (fun _ => True);
-
-(* A filter does not have the empty set as a member. In other words, every
-   member of the filter is nonempty. Thus, the quantifier [ultimately] is
-   stronger than an existential quantifier: [ultimately x, P x] implies
-   [exists x, P x]. *)
-
-  _ :
-    forall P, ultimately P -> exists a, P a;
 
 (* A filter is closed by inclusion and by (finite) intersection. In other
    words, the quantifier [ultimately] is covariant and commutes with (finite)
@@ -97,10 +89,6 @@ Implicit Type P : pred A.
 
 Lemma filter_universe:
   ultimately A (fun _ => True).
-Proof. destruct A as [? M]. destruct M. eauto. Qed.
-
-Lemma filter_member_nonempty:
-  forall P, ultimately A P -> exists a, P a.
 Proof. destruct A as [? M]. destruct M. eauto. Qed.
 
 Lemma filter_closed_under_intersection:
@@ -313,8 +301,6 @@ Section Image.
   Proof.
     eapply Filter.Mixin with image.
     { apply filter_universe. }
-    { intros ? I. pose proof (filter_member_nonempty I) as [? ?].
-      eauto. }
     { intros P1 P2 P I1 I2 H.
       unfold image in *.
       apply (filter_closed_under_intersection I1 I2).
@@ -346,15 +332,12 @@ Variable A : Type.
 
 Variable Q : pred A.
 
-Hypothesis Qx : exists x, Q x.
-
 Definition on : Filter.filter A :=
   fun P => forall x, Q x -> P x.
 
 Definition on_filterMixin : Filter.mixin_of A.
 Proof.
   eapply Filter.Mixin with on; unfold on; eauto.
-  destruct Qx as [? ?]. eauto.
 Defined.
 
 Definition on_filterType := FilterType A on_filterMixin.
@@ -373,10 +356,7 @@ End On.
 (* ---------------------------------------------------------------------------- *)
 (* As an instance of [on_filterType], the filter of positive elements on Z. *)
 
-Definition positive_filterType : filterType.
-  refine (@on_filterType Z (fun x => Z.le 0 x) _).
-  abstract (exists 0%Z; apply Z.le_refl).
-Defined.
+Definition positive_filterType : filterType := on_filterType (Z.le 0).
 
 Lemma positiveP:
   forall P : pred Z,
@@ -386,31 +366,24 @@ Proof. reflexivity. Qed.
 
 (* ---------------------------------------------------------------------------- *)
 
-(* If the type A is inhabited, then the singleton set that contains just the set
-   [A] is a filter. We call this modality [everywhere]. *)
+(* The singleton set that contains just the set [A] is a filter. We call this
+   modality [everywhere]. *)
 
 Section FilterEverywhere.
 
 Variable A : Type.
-Context `{IA: Inhab A}.
 
 Definition everywhere_filterMixin : Filter.mixin_of A.
 Proof.
   eapply Filter.Mixin with
-    (fun (P: A -> Prop) => forall a, P a);
-  eauto.
-  Unshelve.
-  forwards IA': indefinite_description IA.
-  destruct IA' as (a & _). apply a.
+    (fun (P: A -> Prop) => forall a, P a); eauto.
 Defined.
 
 Definition everywhere_filterType := FilterType A everywhere_filterMixin.
 
 End FilterEverywhere.
 
-Arguments everywhere_filterType A [IA].
-
-Lemma everywhereP A `{Inhab A} :
+Lemma everywhereP A :
   forall (P : A -> Prop),
   ultimately (everywhere_filterType A) P =
   forall a, P a.
@@ -420,13 +393,7 @@ Proof. reflexivity. Qed.
 
 (* A filter on [unit], as an instance of [everywhere]. *)
 
-Instance Inhab_unit : Inhab unit.
-Proof. apply (Inhab_of_val tt). Qed.
-
-Definition unit_filterMixin : Filter.mixin_of unit.
-Proof. eapply everywhere_filterMixin. typeclass. Defined.
-
-Definition unit_filterType := FilterType unit unit_filterMixin.
+Definition unit_filterType := everywhere_filterType unit.
 
 Lemma unitP :
   forall (P : unit -> Prop), ultimately unit_filterType P = P tt.
@@ -471,7 +438,6 @@ Proof.
   eapply Filter.Mixin with
     (fun (P: nat -> Prop) => exists n0, forall n, le n0 n -> P n).
   - exists 0%nat. eauto with arith.
-  - intros ? [n0 ?]. exists n0. eauto with arith.
   - { introv [n0 H0] [n1 H1] H. exists (max n0 n1).
       intros n ?. apply H.
       - apply H0. lia.
@@ -518,7 +484,6 @@ Proof.
   eapply Filter.Mixin with
     (fun (P: Z -> Prop) => exists n0, forall n, Z.le n0 n -> P n).
   - exists 0%Z. eauto with arith.
-  - intros ? [n0 ?]. exists n0. eauto with zarith.
   - { introv [n0 H0] [n1 H1] H. exists (Z.max n0 n1).
       intros n ?. apply H.
       - apply H0. lia.
@@ -587,7 +552,6 @@ Proof.
   eapply Filter.Mixin with
     (fun (P: R -> Prop) => exists x0, forall x, Rle x0 x -> P x).
   - exists 0%R. eauto with arith.
-  - intros ? [x0 H]. exists x0. eapply H. lra.
   - { introv [x0 H0] [x1 H1] H. exists (Rmax x0 x1).
       intros x ?. apply H.
       - apply H0. lets: Rmax_l x0 x1. lra.
@@ -635,10 +599,6 @@ Proof.
   eapply Filter.Mixin with product.
   { do 2 (eexists (fun _ => True)).
     repeat split; apply filter_universe. }
-  { intros P (P1 & P2 & H1 & H2 & ?).
-    forwards [ a1 H1' ] : filter_member_nonempty H1.
-    forwards [ a2 H2' ] : filter_member_nonempty H2.
-    exists (a1, a2). eauto. }
   { intros P Q R.
     intros (P1 & P2 & uP1 & uP2 & ?).
     intros (Q1 & Q2 & uQ1 & uQ2 & ?).
@@ -797,8 +757,6 @@ Proof.
   eapply Filter.Mixin with or.
   { do 2 (eexists (fun _ => True)).
     repeat split; apply filter_universe. }
-  { intros P (P1 & P2 & H1 & H2 & HH).
-    forwards [a1 ?] : filter_member_nonempty H1. eauto. }
   { intros P Q R.
     intros (P1 & P2 & uP1 & uP2 & HP).
     intros (Q1 & Q2 & uQ1 & uQ2 & HQ).
@@ -830,10 +788,6 @@ Proof.
   eapply Filter.Mixin with orp.
   { do 2 (eexists (fun _ => True)).
     repeat split; apply filter_universe. }
-  { intros P (P1 & P2 & H1 & H2 & HP1 & HP2).
-    forwards [ a1 H1' ] : filter_member_nonempty H1.
-    forwards [ a2 H2' ] : filter_member_nonempty H2.
-    exists (a1, a2). eauto. }
   { intros P Q R.
     intros (P1 & P2 & uP1 & uP2 & HP1 & HP2).
     intros (Q1 & Q2 & uQ1 & uQ2 & HQ1 & HQ2).
@@ -849,7 +803,7 @@ Definition orp_filterType :=
 
 End FilterOrP.
 
-Lemma orp_equiv_or_product : forall (A1 A2: filterType) P `{IA1: Inhab A1} `{IA2: Inhab A2},
+Lemma orp_equiv_or_product : forall (A1 A2: filterType) P,
   ultimately (orp_filterType A1 A2) P <->
   ultimately
     (@or_filterType (A1 * A2)
@@ -891,10 +845,6 @@ Definition asymproduct_filterMixin : Filter.mixin_of (A1 * A2).
 Proof.
   eapply Filter.Mixin with asymproduct.
   { repeat (apply filter_universe_alt; intro). trivial. }
-  { intros P HP.
-    forwards [ a1 HP' ] : filter_member_nonempty HP.
-    forwards [ a2 HP'' ] : filter_member_nonempty HP'.
-    exists (a1, a2). eauto. }
   { intros P Q R H1 H2 HH.
     revert H1 H2. unfold asymproduct. filter_closed_under_intersection.
     intro. intros [H1 H2]. revert H1 H2. filter_closed_under_intersection.
@@ -975,26 +925,33 @@ Section InvImage.
 
   Variable f : A -> B.
 
-  Hypothesis often_invf :
-    often B (fun b => exists a, f a = b).
-
   Definition invimage : Filter.filter A :=
-    fun P => ultimately B (fun b => forall a, f a = b -> P a).
+    fun P => exists Q,
+        ultimately B Q /\
+        (forall a, Q (f a) -> P a).
 
   Definition invimage_filterMixin : Filter.mixin_of A.
   Proof.
     eapply Filter.Mixin with invimage.
-    { unfold invimage. eauto using filter_universe_alt. }
-    { intros ? I. unfold invimage in I. unfold often in often_invf.
-      specializes often_invf I. destruct often_invf as [b [[a ?] ?]].
-      eauto. }
-    { intros P1 P2 P I1 I2 HH. revert I1 I2. unfold invimage.
-      filter_closed_under_intersection. intros ? [? ?]. eauto. }
+    { unfold invimage. exists (fun _:B => True).
+      eauto using filter_universe_alt. }
+    { intros P1 P2 P [Q1 [UQ1 I1]] [Q2 [UQ2 I2]] HH. unfold invimage.
+      exists (fun b => Q1 b /\ Q2 b). split.
+      revert UQ1 UQ2; filter_closed_under_intersection; eauto.
+      intros a [? ?]. eauto. }
   Defined.
 
   Definition invimage_filterType := FilterType A invimage_filterMixin.
 
 End InvImage.
+
+Arguments invimage : clear implicits.
+Arguments invimage_filterType : clear implicits.
+
+Lemma invimageP : forall A B f P,
+  ultimately (invimage_filterType B A f) P =
+  (exists Q, ultimately B Q /\ (forall a, Q (f a) -> P a)).
+Proof. reflexivity. Qed.
 
 (* ---------------------------------------------------------------------------- *)
 
@@ -1004,32 +961,9 @@ Section Within.
    also a filter on [A]. By definition, a formula [Q] is ultimately holds within
    [P] if and only if [P -> Q] is ultimately true. *)
 
-(* There is a condition on [P], though. The formula [P] must not forbid `going
-   to the limit' in the sense of [ultimately]. To take a concrete example, if
-   our initial filter is [up_nat], then it would not make sense for [P] to be
-   the property [fun n => n <= k]. If we did choose such a [P], then [within P]
-   would be a filter that says ``when [n] tends towards infinity while remaining
-   under [k]''. This makes no sense.
-
-   What is an appropriate condition on [P]? We could require [ultimately P], but
-   that would be too strong; if ultimately [P] holds, then ultimately [P -> Q]
-   is equivalent to ultimately [Q]. (Another way to see that this is wrong is to
-   take an example where [P] is [fun (i, n) => i <= n]. This property does not
-   hold ultimately, yet it does make sense.)
-
-   An appropriate condition seems to be [~ ultimately ~ P], also known as [often
-   P]. Indeed, if [P] is ultimately false, this means that [P] `forbids going to
-   the limit'. We can see that if [P] is ultimately false, then [P -> Q] is
-   ultimately true, regardless of [Q], and that is not a good thing, as we
-   expect [ultimately (P -> Q)] to imply something about [Q]. Technically, the
-   condition [often P] seems to be exactly what is needed in order to prove that
-   [within P] does not accept an empty [Q]. *)
-
 Variable A : filterType.
 
 Variable P : pred A.
-
-Hypothesis oftenP : often A P.
 
 Definition within : Filter.filter A :=
   fun Q => ultimately A (fun x => P x -> Q x).
@@ -1038,8 +972,6 @@ Definition within_filterMixin : Filter.mixin_of A.
 Proof.
   eapply Filter.Mixin with within.
   { apply filter_universe_alt. tauto. }
-  { intros Q hPQ. destruct (oftenP hPQ) as [x [? ?]].
-    eauto. }
   { intros Q1 Q2 Q hPQ1 hPQ2 ?.
     eapply filter_closed_under_intersection.
     - exact hPQ1.
@@ -1059,15 +991,14 @@ Arguments within_filterType : clear implicits.
 
 Lemma withinP:
   forall (A : filterType) (P : A -> Prop),
-  forall O : often A P,
   forall Q,
-  ultimately (within_filterType A P O) Q =
+  ultimately (within_filterType A P) Q =
   ultimately A (fun x => P x -> Q x).
 Proof. reflexivity. Qed.
 
 Lemma within_finer :
-  forall (A : filterType) P O,
-  finer (ultimately (within_filterType A P O)) (ultimately A) .
+  forall (A : filterType) P,
+  finer (ultimately (within_filterType A P)) (ultimately A) .
 Proof.
   introv. unfold finer. intros Q. rewrite withinP.
   filter_closed_under_intersection. tauto.

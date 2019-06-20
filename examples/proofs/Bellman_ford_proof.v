@@ -107,30 +107,10 @@ Proof.
         simpl. dominated. } } }
 Admitted.
 
-Definition domain := (fun '(n,m) => m <= n ^ 2).
-
-Lemma domain_often :
-  often
-    (product_filterType Z_filterType Z_filterType)
-    domain.
-Proof.
-  unfold often. simpl. intros Q U.
-  rewrite productP in U. destruct U as (P1 & P2 & U1 & U2 & H).
-  rewrite (ZP_ultimately (ultimately_ge_Z 1)) in U1.
-  rewrite (ZP_ultimately (ultimately_ge_Z 1)) in U2.
-  destruct U2 as (m0 & M0 & Hm0). destruct U1 as (n0 & N0 & Hn0).
-  exists (Z.max n0 m0, (Z.max n0 m0) ^ 2).
-  split; swap 1 2.
-  - apply H. apply Hn0. math_lia. apply Hm0. math_nia.
-  - unfold domain. reflexivity.
-Qed.
-
 Lemma bellman_ford2_spec_within :
   specO
-    (within_filterType
-      (product_filterType Z_filterType Z_filterType)
-      domain
-      domain_often)
+    (within_filterType (product_filterType Z_filterType Z_filterType)
+      (fun '(n,m) => m <= n^2))
     ZZle
     (fun cost =>
       forall (inf source : int) t (edges : list (int * int * int)%type) (nb_nodes : int),
@@ -148,25 +128,21 @@ Proof.
   { exists 1. rewrite withinP.
     rewrite productP. do 2 exists (fun x => 0 <= x).
     splits; try apply ultimately_ge_Z.
-    intros n m N M D. unfold domain in D.
+    intros n m N M D.
     rewrite Z.abs_eq; [| math_nia].
     rewrite Z.abs_eq; swap 1 2. apply~ Z.pow_nonneg.
     rewrite D. math_nia. }
 Qed.
 
 Lemma bellman_ford2_spec_derived :
-  specO
-    Z_filterType
-    Z.le
-    (fun cost =>
-      forall (inf source : int) t (edges : list (int * int * int)%type) (nb_nodes : int),
-        0 <= source < nb_nodes ->
-        1 <= nb_nodes ->
-        LibListZ.length edges <= nb_nodes ^ 2 ->
-        app bellman_ford2 [inf source t nb_nodes]
-        PRE (\$ (cost nb_nodes) \* t ~> Array edges)
-        POST (fun (_: array int) => t ~> Array edges))
-    (fun n => n ^ 3).
+  specZ [cost \in_O (fun n => n^3)] (
+    forall (inf source : int) t (edges : list (int * int * int)%type) (nb_nodes : int),
+      0 <= source < nb_nodes ->
+      1 <= nb_nodes ->
+      LibListZ.length edges <= nb_nodes ^ 2 ->
+      app bellman_ford2 [inf source t nb_nodes]
+      PRE (\$ (cost nb_nodes) \* t ~> Array edges)
+      POST (fun (_: array int) => t ~> Array edges)).
 Proof.
   xspecO (fun n =>
     let m := If 0 < n then n^2 else 0 in

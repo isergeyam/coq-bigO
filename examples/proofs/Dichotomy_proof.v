@@ -18,26 +18,27 @@ Require Import elia.
 (* Load the CF definitions. *)
 Require Import Dichotomy_ml.
 
-(* Require Import PolTac.PolTac. *)
-(* Global Transparent Z.mul Z.add Z.sub Z.div. *)
-(* Global Transparent N.mul N.add N.sub N.div. *)
-(* Global Transparent Nat.mul Nat.add Nat.sub Nat.div. *)
-(* Global Transparent Zplus Zmult Zopp. *)
-
-(* Arguments Z.add : simpl nomatch. *)
-(* Arguments Z.mul : simpl nomatch. *)
-(* Arguments Z.opp : simpl nomatch. *)
-
-(* Arguments Z.add : simpl never. *)
-(* Arguments Z.mul : simpl never. *)
-(* Arguments Z.opp : simpl never. *)
-(* Opaque Z.mul. *)
-
-(* Goal (forall a, 2 * a = 0 * a + a * 2). *)
-(*   intros. simpl. let t := eval compute in (2*3) in pose t. pols. auto. *)
-(* Qed. *)
-
 Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
+
+Lemma middle_inbound : forall i j m,
+  0 <= i < j ->
+  m = i + (j - i `/` 2) ->
+  i <= m < j.
+Proof.
+  introv [Hi Hij] ->. split.
+  { pols. apply~ Z.quot_pos. }
+  { forwards~: Z.quot_lt (j-i) 2. }
+Qed.
+
+Lemma half_pos : forall n,
+  2 <= n ->
+  0 < n `/` 2.
+Proof.
+  intros n N. forwards~ H: Z.quot_le_mono 2 n 2.
+  rewrite~ Z.quot_same in H.
+Qed.
+
+Hint Resolve half_pos.
 
 Lemma bsearch_spec :
   specZ [cost \in_O Z.log2]
@@ -56,7 +57,6 @@ Proof.
   { intro x. subst cost; simpl. case_if~.
     rewrite <-Z.log2_nonneg. ring_simplify. defer.
   }
-  (* Could be generated automatically... *)
   asserts costPpos: (forall n, 0 < n -> cost n = a * Z.log2 n + b).
   { intro n. subst cost; simpl. case_if~. }
   asserts costPneg: (forall n, n <= 0 -> cost n = 1).
@@ -68,9 +68,7 @@ Proof.
     { monotonic. }
     { rewrite <-Z.log2_nonneg. ring_simplify. defer. } }
 
-
   { xspecO cost.
-
     introv. gen_eq n: (j-i). gen i j. induction_wf IH: (downto 0) n.
     intros i j Hn Hi Hj.
 
@@ -78,7 +76,7 @@ Proof.
     (* xif_ifcost / xif_maxcost / xif = celui qui sert le plus souvent *)
     xif_guard as C. { xret~. }
     (* rewrite nle_as_gt in C. *) asserts~ C' : (i < j). clear C.
-    xret ;=> Hm. assert (Hmbound: i <= m < j) by admit.
+    xret ;=> Hm. forwards~ Hmbound: middle_inbound Hm.
     xapps. { apply~ int_index_prove. }
     xrets. xif. { xret~. }
     xapps. { apply~ int_index_prove. }
@@ -96,24 +94,21 @@ Proof.
       rewrite Z.max_l; swap 1 2.
       { apply cost_monotonic. forwards~: Zquot_mul_2 (j-i). }
       tests Hn1: (j - i = 1).
-      + rewrite Hn1. asserts_rewrite~ (1 `/` 2 = 0).
-        rewrite~ (costPneg 0). rewrite~ (costPpos n).
+      + rewrite Hn1. cbn. rewrite~ (costPneg 0). rewrite~ (costPpos n).
         rewrite <-Z.log2_nonneg. ring_simplify. defer.
-      + rewrite costPpos; [| admit]. rewrite~ costPpos.
-        rewrite <-Hn. rewrite~ <-(@Zlog2_step n).
-        ring_simplify. cuts~: (3 <= a). defer.
+      + rewrite~ costPpos. rewrite~ costPpos.
+        rewrite <-Hn. rewrite~ <-(@Zlog2_step n). pols. defer.
     }
 
     assumption.
-    { unfold cost. rewrite dominated_ultimately_eq; swap 1 2.
-      rewrite ZP. exists 1. intros. cases_if~. reflexivity.
-      apply dominated_sum_distr; dominated. (* FIXME; dominated alone should work *)
-    }
+    { unfold cost. transitivity (fun x => a * Z.log2 x + b).
+      - apply dominated_ultimately_eq.
+        rewrite ZP. exists 1. intros. cases_if~.
+      - dominated. }
   }
 
-  end defer.
-  simpl. exists~ 3 4.
-Admitted.
+  end defer. elia.
+Qed.
 
 Lemma bsearch_spec2 :
   specZ [cost \in_O Z.log2]
@@ -132,14 +127,12 @@ Proof.
     (* xif_ifcost / xif_maxcost / xif = celui qui sert le plus souvent *)
     xif_guard as C. { xret~. }
     (* rewrite nle_as_gt in C. *) asserts~ C' : (i < j). clear C.
-    xret ;=> Hm. assert (Hmbound: i <= m < j) by admit.
+    xret ;=> Hm. forwards~: middle_inbound Hm.
     xapps. { apply~ int_index_prove. }
     xrets. xif. { xret~. }
     xapps. { apply~ int_index_prove. }
     xif.
-    { weaken. xapp~ (m - i). subst m.
-      (* tactique xcost? *)
-      match goal with |- costf ?x <= _ => ring_simplify x end.
+    { weaken. xapp~ (m - i). subst m. rewrite Z.add_simpl_l.
       reflexivity. }
     { (* forwards: IH __ (m+1) j. Focus 2. reflexivity. *)
       weaken. xapp~ (j - (m+1)). subst m. reflexivity. }
@@ -150,11 +143,9 @@ Proof.
     { defer ?: (forall n, 0 <= costf n).
       rewrite (Z.max_r 0); [| auto with zarith].
       rewrite Z.max_l; swap 1 2.
-      { apply M.
-        forwards~: Zquot_mul_2 (j-i). }
+      { apply M. forwards~: Zquot_mul_2 (j-i). }
       tests Hn1: (j-i = 1).
-      + rewrite Hn1. asserts_rewrite~ (1 `/` 2 = 0).
-        asserts_rewrite~ (n = 1). defer.
+      + rewrite Hn1. cbn. asserts_rewrite~ (n = 1). defer.
       + assert (HH: 2 <= n) by math. rewrite <-Hn.
         generalize n HH. defer. }
   }
@@ -164,26 +155,20 @@ Proof.
   begin defer assuming a b.
   defer Ha: (0 <= a).
   exists (fun (n:Z_filterType) => If 0 < n then a * Z.log2 n + b else 1).
-  (* FIXME *)
-  repeat (match goal with |- _ * _ => split
-                     | |- _ /\ _ => split end).
+  repeat split.
   { intros. cases_if~. }
-  { intros. cases_if~. rewrite <-Z.log2_nonneg. ring_simplify.
-    defer. }
-  { cases_if~. cases_if~. simpl. ring_simplify. defer. }
-  { intros n N. cases_if~; [| exfalso; admit]. cases_if~.
-    rewrite~ <-(@Zlog2_step n). ring_simplify.
-    cuts~: (3 <= a). defer. }
+  { intros. cases_if~. rewrite <-Z.log2_nonneg. pols. defer. }
+  { cases_if~. cases_if~. simpl. pols. defer. }
+  { intros n N. cases_if~; [| now false~]. cases_if~.
+    rewrite~ <-(@Zlog2_step n). pols. defer. }
 
   cleanup_cost.
   { intros x y H. cases_if; case_if~.
     { monotonic. }
-    { rewrite <-Z.log2_nonneg. ring_simplify. deferred; math. } }
-  { rewrite dominated_ultimately_eq; swap 1 2.
-      rewrite ZP. exists 1. intros. cases_if~. reflexivity.
-      apply dominated_sum_distr; dominated.
-      (* FIXME; dominated alone should work *)
-  }
-
+    { rewrite <-Z.log2_nonneg. pols. deferred; math. } }
+  { transitivity (fun x => a * Z.log2 x + b).
+    - apply dominated_ultimately_eq.
+      rewrite ZP. exists 1. intros. cases_if~.
+    - dominated. }
   end defer. elia.
-Admitted.
+Qed.

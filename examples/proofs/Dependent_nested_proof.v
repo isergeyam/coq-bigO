@@ -39,16 +39,17 @@ Proof.
     reflexivity. reflexivity. }
 
   cleanup_cost.
-  admit. (* TODO *)
+  { eapply monotonic_sum; [| now monotonic]. eapply monotonic_cumul_Z.
+    intros. admit. (* TODO *) }
 
   dominated.
   rewrite dominated_big_sum_bound.
   { eapply dominated_eq_r; swap 1 2.
     { intros a. rewrite (Z.pow_2_r a). reflexivity. }
-    dominated. eapply dominated_eq_l; swap 1 2.
-    intro.
-    hide_evars_then ltac:(fun _ => rewrite cumulP; rewrite big_const_Z; ring_simplify).
-    reflexivity. reflexivity. }
-  ultimately_greater. apply~ filter_universe_alt.
-  apply filter_universe_alt. monotonic. admit.
+    dominated.
+    rewrite dominated_big_sum_bound. dominated. ultimately_greater.
+    apply~ filter_universe_alt. monotonic. }
+  repeat ultimately_greater.
+  apply filter_universe_alt.
+  intro. apply monotonic_after_of_monotonic. monotonic.
 Admitted.

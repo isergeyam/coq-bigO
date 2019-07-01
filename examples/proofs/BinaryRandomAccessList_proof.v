@@ -70,6 +70,7 @@ Opaque Z.mul.
 (* Hint Extern 1 (@lt nat _ _ _) => rew_list; math. *)
 (* Hint Resolve ZNth_zero ZUpdate_here ZUpdate_not_nil. *)
 Hint Resolve app_not_empty_l app_not_empty_r.
+Hint Extern 1 (0 <= length _) => math : zarith.
 
 (** useful facts *)
 
@@ -198,7 +199,7 @@ Lemma pow_r_eq : forall x y b,
   x = y -> b ^ x = b ^ y.
 Proof. intros; subst~. Qed.
 
-Ltac epow tac :=
+Local Ltac epow tac :=
   erewrite pow_r_eq; [ tac | auto_tilde ].
 
 Tactic Notation "epow" ":" tactic(tac) :=
@@ -223,10 +224,6 @@ Proof.
         + epow: rewrite IH. math. } }
 Qed.
 
-(* move to tlc? *)
-Lemma Zdiv_le : forall a b: Z, (0 <= a) -> (1 <= b) -> (Z.div a b <= a).
-Proof. admit. Admitted.
-
 Lemma ts_bound : forall a ts p L,
     @inv a p ts L ->
     2 ^ (length ts) <= 2 * (length L) + 1.
@@ -236,9 +233,7 @@ Proof.
   { forwards I: inv_ts_len H. congruence.
     erewrite pow_r_eq in I; [| rew_list; ring_simplify; reflexivity].
     rew_pow~ 2 1. change (2^1) with 2.
-    rew_pow~ 2 p in I.
-    transitivity (2 * (2 ^ length ts * 2 ^ p)); [| math]. (* rewrite <-I *)
-    (* XX *)
+    rew_pow~ 2 p in I. rewrite~ <-I.
     forwards~: pow2_ge_1 p. forwards~: Z.pow_nonneg 2 (length ts). math_nia. }
 Qed.
 
@@ -340,25 +335,19 @@ Proof.
       { xapps~. intros. xapps~. intros.
         xret. hsimpl. constructors~. rew_list~. }
 
-    (* XXX *)
-    defer: (forall n, 0 <= n -> 0 <= cost n).
-    forwards: length_nonneg ts. rew_cost. rew_list.
-    generalize (length ts); defer. }
+    rew_cost. rew_list. generalize (length ts) (length_nonneg ts). defer. }
 
   close_cost. begin defer assuming a b.
   exists (fun n => a * n + b). repeat split.
   { ring_simplify. defer. }
-  { introv HH. rewrite <-HH; ring_simplify; defer. }
-  { intros n Hn. ring_simplify.
-    cut (cost link_spec tt + 1 <= a). (* XX *) (* math. ?? FIXME *) admit. defer. }
+  { introv HH. cancel z; case_max; defer. }
 
   cleanup_cost.
-  { deferred ?: (0 <= a). monotonic. }
+  { assert (0 <= a) by (deferred; math_lia). monotonic. }
   { dominated. }
 
-  end defer.
-  exists (cost link_spec tt + 1) 1. auto with zarith.
-Admitted.
+  end defer. elia.
+Qed.
 
 Lemma cons_tree_spec_aux' :
   specZ [cost \in_O (fun n => n)]
@@ -381,17 +370,12 @@ Proof.
       { xapps~. intros. xapps~. intros.
         xret. hsimpl. constructors~. rew_list~. }
 
-      rew_list. rew_cost.
-      rewrite Z.max_l; swap 1 2.
-      { rewrite <-cost_nonneg, <-length_nonneg. ring_simplify.
-        defer. defer. }
-      cut (cost link_spec tt + 1 <= a). (* XX *) math_lia. defer. }
+      rew_list. rew_cost. cancel (length ts). all: case_max; defer. }
 
-  { deferred: (0 <= a). monotonic. }
+  { assert (0 <= a) by (deferred; math_lia). monotonic. }
   { dominated. }
 
-  end defer.
-  exists (cost link_spec tt + 1) 1. auto with zarith.
+  end defer. elia.
 Qed.
 
 Lemma cons_tree_spec :
@@ -458,14 +442,12 @@ Proof.
       - match goal with B: btree _ _ _ |- _ => inverts B end; subst.
         { math. } { jauto. } }
 
-    rew_cost. rew_list. rewrite Z.max_l; swap 1 2.
-    { rewrite <-length_nonneg. rew_cost. defer. defer. }
-    (* XX *) cut (1 <= a). math_lia. defer. }
+    rew_cost. rew_list. cancel (length ts'). all: case_max; defer. }
 
-  { deferred ?: (0 <= a). monotonic. }
+  { assert (0 <= a) by (deferred; math_lia). monotonic. }
   { dominated. }
 
-  end defer. exists 1 0. omega.
+  end defer. elia.
   Grab Existential Variables.  apply heap_is_gc. (* XXX *)
 Qed.
 
@@ -544,11 +526,10 @@ Proof.
     { xapplys~ IHt1. apply~ Nth_app_l. }
     { xapplys~ IHt2. apply~ Nth_app_r'. math_lia. }
 
-    rew_cost. subst. rewrite Z.max_l; swap 1 2.
-    { forwards~ Hp: btree_size_pos. rewrite <-Hp. rew_cost. defer. defer. }
-    (* XX *) cut (1 <= a). math_lia. defer. }
-  { deferred ?: (0 <= a). monotonic. } { dominated. }
-  end defer. exists 1 1; omega.
+    rew_cost. subst. cancel p0. case_max; auto; defer. apply~ btree_size_pos.
+    case_max; defer. }
+  { assert (0 <= a) by (deferred; math_lia). monotonic. } { dominated. }
+  end defer. elia.
 Qed.
 
 Hint Extern 1 (RegisterSpec lookup_tree) => Provide (provide_specO lookup_tree_spec).
@@ -583,11 +564,10 @@ Proof.
     { xapp_spec~ IHt2. intros; unpack.
       xret. hsimpl. exists. split. constructors~. admit. }
 
-    rew_cost. subst. rewrite Z.max_l; swap 1 2.
-    { forwards~ Hp: btree_size_pos. rewrite <-Hp. rew_cost. defer. defer. }
-    { (* XX *) cut (1 <= a). math_lia. defer. } }
-  { deferred ?: (0 <= a). monotonic. } { dominated. }
-  end defer. exists 1 1; omega.
+    rew_cost. subst. cancel p0. case_max; auto; defer. apply~ btree_size_pos.
+    case_max; defer. }
+  { assert (0 <= a) by (deferred; math). monotonic. } { dominated. }
+  end defer. elia.
 Admitted.
 
 Hint Extern 1 (RegisterSpec update_tree) => Provide (provide_specO update_tree_spec).
@@ -613,22 +593,6 @@ Proof.
 Qed.
 
 Hint Resolve limit_positive_0 : limit.
-
-Ltac cases_max :=
-  let lhs := fresh "lhs" in
-  let rhs := fresh "rhs" in
-  match goal with
-    |- context [ Z.max ?n _ ] =>
-    set (lhs := n);
-    match goal with
-      |- context [ Z.max lhs ?m ] =>
-      set (rhs := m);
-      let E := fresh "E" in
-      let I := fresh "I" in
-      forwards [[I E]|[I E]]: Z.max_spec_le lhs rhs;
-      rewrite E; clear E; subst lhs; subst rhs
-    end
-end.
 
 (* HACK HACK HACK
 
@@ -739,7 +703,7 @@ Proof.
 
     rew_list. rew_cost.
     asserts~ [HH1 HH2]: (0 <= p /\ 0 <= length ts).
-    repeat cases_max; generalize p (length ts) HH1 HH2; defer. }
+    generalize p (length ts) HH1 HH2; defer. }
 
   close_cost.
 
@@ -753,30 +717,15 @@ Proof.
   begin defer assuming a b c d.
   exists (fun '(m,n) => a * m + b * n + c * cost lookup_tree_spec (m+n) + d).
   repeat split.
-  { intros m n Hm Hn. ring_simplify.
-    rewrite Z.add_assoc.
-    cut (2 * cost size_spec tt + a + 1 <= b). math_lia. defer. }
-  { intros m n Hm Hn. ring_simplify.
-    assert (HH: 0 <= a * m). { apply~ Z.mul_nonneg_nonneg. defer. } rewrite <-HH.
-    assert (HHH: 0 <= b * n). { apply~ Z.mul_nonneg_nonneg. defer. } rewrite <-HHH.
-    assert (H: cost lookup_tree_spec m <= c * cost lookup_tree_spec (m + (1 + n))).
-    { defer: (1 <= c).
-      forwards~: cost_monotonic lookup_tree_spec m (m + (1 + n)).
-      forwards~: cost_nonneg lookup_tree_spec (m + (1 + n)).
-      math_nia. } rewrite <-H.
-    cut (cost size_spec tt + 1 <= b + d). math_lia. defer. }
-  { intros m n Hm Hn. ring_simplify.
-    rewrite Z.add_assoc.
-    cut (a + 1 <= b). math_nia. defer. }
-
+  { intros m n Hm Hn. math_rewrite (m+(1+n) = m+1+n).
+    rewrite~ (cost_monotonic lookup_tree_spec m (m+1+n)).
+    cancel (cost lookup_tree_spec (m+1+n)). case_max; auto with zarith; defer.
+    cancel m; cancel n. all: repeat case_max; auto with zarith. all: defer. }
   cleanup_cost.
   { intros [m n] [m' n'] [Hm Hn].
-    deferred ?: (0 <= a).
-    deferred ?: (0 <= b).
-    deferred ?: (1 <= c).
+    assert (0 <= a /\ 0 <= b /\ 1 <= c) as (?&?&?) by (deferred; math_lia).
     forwards~ M: cost_monotonic lookup_tree_spec (m + n) (m' + n').
-    (* math_nia *) (* fixme? *)
-    rewrite~ M. rewrite~ Hm. rewrite~ Hn. apply Z.le_refl. }
+    rewrite~ M. auto with zarith. }
 
   apply_nary dominated_sum_distr_nary.
   { apply_nary dominated_sum_distr_nary.
@@ -801,9 +750,7 @@ Proof.
       intros [? ?]. reflexivity. intros [? ?]. reflexivity. } }
 
   dominated.
-  end defer.
-  exists 0 (2 * cost size_spec tt + 1) 1 0. splits; auto with zarith; try math.
-  { forwards~: cost_nonneg size_spec tt. }
+  end defer. elia.
 Qed.
 
 (* (* XX abs i *) *)

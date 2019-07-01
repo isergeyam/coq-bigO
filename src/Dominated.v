@@ -1412,7 +1412,16 @@ Hint Extern 999 (dominated _ _ _) => shelve : dominated_fallback.
 
 (* TODO: make the search depth customisable *)
 
+Ltac dominated_setup :=
+  try match goal with |- dominated ?A (fun x => ?f) ?g =>
+    change (dominated A (fun x : Filter.sort A => f) g)
+  end;
+  try match goal with |- dominated ?A ?f (fun x => ?g) =>
+    change (dominated A f (fun x : Filter.sort A => g))
+  end.
+
 Ltac dominated :=
+  dominated_setup;
   unshelve (auto 20 with
                 zarith typeclass_instances
                 ultimately_greater
@@ -1422,6 +1431,7 @@ Ltac dominated :=
                 dominated_fallback).
 
 Ltac dominated_trysolve :=
+  dominated_setup;
   auto 20 with
     zarith typeclass_instances
     ultimately_greater

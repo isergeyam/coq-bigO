@@ -16,8 +16,11 @@ Require Export DominatedNary.
 Require Export FilterNary.
 Require Export LimitNary.
 Require Export Generic.
-Require Import TLC.LibIntTactics.
+Require Export TLC.LibIntTactics.
 Require Export HeapTactics.
+Require Export MathTactics.
+Require Export elia.
+Require Export PolTac.PolTac.
 
 (********************************************************************)
 
@@ -77,6 +80,11 @@ Qed.
 Hint Resolve monotonic_specO_nonneg : zarith.
 
 Hint Resolve cost_dominated : dominated.
+
+Instance Le_cost
+  (A:filterType) le spec bound (S: specO A le spec bound) (x:A) :
+  Le 0 (cost S x).
+Proof. apply cost_nonneg. Qed.
 
 (* to debug, should work but doesn't seem to. Maybe try later with typeclasses
    eauto? *)

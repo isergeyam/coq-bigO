@@ -85,6 +85,9 @@ Next Obligation.
   intros x1 y1 h1 x2 y2 h2. do 2 max_case; omega.
 Qed.
 
+Program Instance proper_Zmax: Proper (Z.le ++> Z.le ++> Z.le) Z.max.
+Next Obligation. intros ? ? ? ? ? ?. nia. Qed.
+
 (* Strict ordering implies lax ordering. *)
 
 Program Instance subrelation_lt_le: subrelation lt le.

@@ -100,6 +100,11 @@ Next Obligation.
   intros x y h. omega.
 Qed.
 
+Program Instance subrelation_Zlt_Zle: subrelation Z.lt Z.le.
+Next Obligation.
+  intros ? ? ?. lia.
+Qed.
+
 (* A quick test. *)
 
 Goal

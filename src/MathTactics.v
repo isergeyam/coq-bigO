@@ -13,6 +13,12 @@ Ltac case_max :=
 Class Add (a b c : Z) :=
   MkAdd : c = a + b.
 
+Class Opp (a b : Z) :=
+  MkOpp : b = -a.
+
+Class Sub (a b c : Z) :=
+  MkSub : c = a - b.
+
 Instance Add0l a : Add 0 a a.
 Proof. reflexivity. Qed.
 Instance Add0r a : Add a 0 a.
@@ -20,18 +26,14 @@ Proof. unfold Add. now rewrite Z.add_0_r. Qed.
 Instance Add_default a b : Add a b (a+b) | 5.
 Proof. reflexivity. Qed.
 
-Class Sub (a b c : Z) :=
-  MkSub : c = a - b.
-
-Instance Sub0l a : Sub 0 a (-a).
-Proof. reflexivity. Qed.
+Instance Sub0l a b :
+  Opp a b ->
+  Sub 0 a b.
+Proof. intros ->. reflexivity. Qed.
 Instance Sub0r a : Sub a 0 a.
 Proof. unfold Sub. now rewrite Z.sub_0_r. Qed.
 Instance Sub_default a b : Sub a b (a-b) | 5.
 Proof. reflexivity. Qed.
-
-Class Opp (a b : Z) :=
-  MkOpp : b = -a.
 
 Instance Opp0 : Opp 0 0.
 Proof. reflexivity. Qed.
@@ -39,6 +41,15 @@ Instance OppOpp a : Opp (-a) a.
 Proof. unfold Opp. math. Qed.
 Instance Opp_default a : Opp a (-a) | 5.
 Proof. reflexivity. Qed.
+
+Instance Sub_opp a b c :
+  Add a b c ->
+  Sub a (-b) c.
+Proof. intros ->. unfold Sub. math. Qed.
+Instance Add_opp a b c :
+  Sub b a c ->
+  Add (-a) b c.
+Proof. intros ->. unfold Add. math. Qed.
 
 Class Mul (a b c : Z) :=
   MkMul : c = a * b.
@@ -51,10 +62,14 @@ Instance Mul1l a : Mul 1 a a.
 Proof. unfold Mul. now rewrite Z.mul_1_l. Qed.
 Instance Mul1r a : Mul a 1 a.
 Proof. unfold Mul. now rewrite Z.mul_1_r. Qed.
-Instance Mulm1l a : Mul (-1) a (-a).
-Proof. unfold Mul. math. Qed.
-Instance Mulm1r a : Mul a (-1) (-a).
-Proof. unfold Mul. math. Qed.
+Instance Mulm1l a b :
+  Opp a b ->
+  Mul (-1) a b.
+Proof. intros ->. unfold Mul. math. Qed.
+Instance Mulm1r a b :
+  Opp a b ->
+  Mul a (-1) b.
+Proof. intros ->. unfold Mul. math. Qed.
 Instance Mul_default a b : Mul a b (a*b) | 5.
 Proof. reflexivity. Qed.
 
@@ -224,6 +239,12 @@ Instance Simp_sub a b a' b' c :
   Sub a' b' c ->
   Simp (a - b) c.
 Proof. intros -> -> ->. reflexivity. Qed.
+
+Instance Simp_opp a a' b :
+  Simp a a' ->
+  Opp a' b ->
+  Simp (-a) b.
+Proof. intros -> ->. reflexivity. Qed.
 
 Instance Simp_mul a b a' b' c :
   Simp a a' ->

@@ -30,6 +30,16 @@ Proof. unfold Sub. now rewrite Z.sub_0_r. Qed.
 Instance Sub_default a b : Sub a b (a-b) | 5.
 Proof. reflexivity. Qed.
 
+Class Opp (a b : Z) :=
+  MkOpp : b = -a.
+
+Instance Opp0 : Opp 0 0.
+Proof. reflexivity. Qed.
+Instance OppOpp a : Opp (-a) a.
+Proof. unfold Opp. math. Qed.
+Instance Opp_default a : Opp a (-a) | 5.
+Proof. reflexivity. Qed.
+
 Class Mul (a b c : Z) :=
   MkMul : c = a * b.
 
@@ -117,6 +127,13 @@ Instance FactorByLe_sub f a1 a2 b1 b2 c1 c2 b c :
   Sub c1 c2 c ->
   FactorByLe f (a1 - a2) b c.
 Proof. intros ? -> -> ->. unfold FactorByLe in *. spec. math_nia. Qed.
+
+Instance FactorBy_opp f a b1 c1 b c :
+  FactorBy f a b1 c1 ->
+  Opp b1 b ->
+  Opp c1 c ->
+  FactorBy f (- a) b c.
+Proof. intros -> -> ->. unfold FactorBy. math_nia. Qed.
 
 Class MulFactored a1 b1 a2 b2 a3 b3 :=
   MkMulFactored : forall f, a3 * f + b3 = (a1 * f + b1) * (a2 * f + b2).

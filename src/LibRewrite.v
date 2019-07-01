@@ -39,6 +39,11 @@ Next Obligation.
   unfold flip. intros x1 y1 h1 x2 y2 h2. omega.
 Qed.
 
+Program Instance proper_Zsub: Proper (Z.le ++> Z.le --> Z.le) Z.sub.
+Next Obligation.
+  unfold flip. intros ? ? ? ? ? ?. lia.
+Qed.
+
 (* Multiplication is covariant in both arguments. *)
 
 Program Instance proper_mult: Proper (le ++> le ++> le) mult.

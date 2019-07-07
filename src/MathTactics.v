@@ -94,6 +94,20 @@ Proof. unfold Le, Max. math_lia. Qed.
 Instance Max_default a b : Max a b (Z.max a b) | 20.
 Proof. reflexivity. Qed.
 
+(* Lemma Max_simp a b a' b' c: *)
+(* Max a' b' c -> *)
+(* a = a' -> *)
+(* b = b' -> *)
+(* Max a b c. Admitted. *)
+(* Hint Extern 5 (Max _ _ _) => *)
+(*   progress ( *)
+(*     eapply Max_simp; [ | *)
+(*       (match goal with |- _ = ?y => *)
+(*          let x := fresh in set (x := y); try pols; rewrite ?Z.add_0_r ?Z.add_0_l; subst x *)
+(*        end; reflexivity)..] *)
+(*   ) : typeclass_instances. *)
+(* todo improve: pols (a + (b - a)) -> 0 + a ... *)
+
 Local Ltac spec :=
   intros;
   repeat match goal with H1 : ?X, H2 : ?X -> ?Y |- _ =>

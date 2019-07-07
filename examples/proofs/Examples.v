@@ -335,21 +335,24 @@ Lemma let2_spec :
            POST (fun (tt:unit) => \[]))
     (fun n => n).
 Proof.
-  xspecO_refine straight_line.
-  intros n N.
+  dup.
+  { (* either anticipate, and call weaken beforehand *)
+    xspecO_refine straight_line. intros n N.
+    xcf. xpay. xlet.
+    { xapp~. }
+    { xpull. intro Hm. (* here *) weaken. xapp. math.
+      apply (le_than (cost loop1_spec n)).
+      apply cost_monotonic. math. }
+    cleanup_cost. monotonic. dominated. }
 
-  xcf.
-  xpay.
-
-  xlet.
-  { xapp~. }
-  { xpull. intro Hm. weaken. xapp. math.
-    apply (le_than (cost loop1_spec n)). apply cost_monotonic. math.
-  }
-
-  cleanup_cost.
-  monotonic.
-  dominated.
+  { (* or use the fancy/half broken piggybank tactics *)
+    xspecO_refine straight_line. intros n N.
+    xcf. xpay. xlet. { xapp~. }
+    { xpull. intro Hm. (* no weaken *) xapp. math.
+      Fail piggybank: *rhs. (* expected: lhs and rhs do not unify *)
+      piggybank: *. transitivity (cost loop1_spec n). now apply cost_monotonic.
+      piggybank: * done. }
+    cleanup_cost. monotonic. dominated. }
 Qed.
 
 (* [loop2]: Similarly, we can have a for-loop where the value of the starting
@@ -408,22 +411,32 @@ Lemma if1_spec :
            POST (fun (tt:unit) => \[]))
     (fun n => n).
 Proof.
-  xspecO_refine straight_line.
-  intros n cond N.
-  xcf. xpay.
-  xapp~. intro Ha.
-  xapp~. intro Hb.
+  dup.
+  { xspecO_refine straight_line.
+    intros n cond N.
+    xcf. xpay.
+    xapp~. intro Ha.
+    xapp~. intro Hb.
 
-  xif.
-  { weaken. xapp. math.
-    (* Bound the cost of the branch by something that only depends on [n], using
-    the fact that [loop1_cost] is monotonic. *)
-    apply (le_than (cost loop1_spec n)). apply cost_monotonic. math. }
-  { weaken. xapp. math. apply (le_than (cost loop1_spec n)). apply cost_monotonic. math. }
+    xif.
+    { weaken. xapp. math.
+      (* Bound the cost of the branch by something that only depends on [n], using
+         the fact that [loop1_cost] is monotonic. *)
+      apply (le_than (cost loop1_spec n)). apply cost_monotonic. math. }
+    { weaken. xapp. math. apply (le_than (cost loop1_spec n)). apply cost_monotonic. math. }
 
-  cleanup_cost.
-  monotonic.
-  dominated.
+    cleanup_cost.
+    monotonic.
+    dominated. }
+
+  { xspecO_refine straight_line. intros n cond N.
+    xcf. xpay. xapp~. intro Ha. xapp~. intro Hb.
+    xif.
+    { xapp. math. piggybank: *. transitivity (cost loop1_spec n).
+      now apply cost_monotonic. piggybank: * done. }
+    { xapp. math. piggybank: *. transitivity (cost loop1_spec n).
+      now apply cost_monotonic. piggybank: * done. }
+    cleanup_cost. monotonic. dominated. }
 Qed.
 
 (* [looploop]: nested for-loops *)
@@ -698,27 +711,6 @@ Proof.
    WIP: attempts at semi-manually handling recursive functions.
 *)
 
-(* zify fails to process e.g. Z.max 0 0; as a workaround, add a [unmaxify]
-   that postprocess those.
-
-   See https://coq.inria.fr/bugs/show_bug.cgi?id=5439
-*)
-
-Ltac unmaxify_core a b :=
-  pose proof (Z.max_spec a b);
-  let z := fresh "z" in
-  set (z := Z.max a b) in *;
-  clearbody z.
-
-Ltac unmaxify_step :=
-  match goal with
-  | |- context [ Z.max ?a ?b ] => unmaxify_core a b
-  | H : context [ Z.max ?a ?b ] |- _ => unmaxify_core a b
-  end.
-
-Ltac unmaxify := repeat unmaxify_step.
-Ltac zify_op ::= repeat zify_op_1; unmaxify.
-
 (* NB: Adding the precondition [0 <= n] to the specification doesn't help
    simplifying the cost functions and getting rid of the Z.max. Indeed, [specO]
    requires that the provided cost function is always nonnegative — which is not
@@ -773,7 +765,7 @@ Proof.
   xcf. weaken.
   xpay. xif. xret. hsimpl. xguard C. xapp. math.
 
-  cases_if.
+  cases_if. rew_cost.
   { generalize n C. defer. }
   { generalize n C. defer. }
 
@@ -907,18 +899,14 @@ Proof.
 
   simpl.
   begin defer assuming a b. exists (fun (n:Z_filterType) => a * n + b).
-  defer a_nonneg: (0 <= a).
-  (* FIXME *)
-  repeat (match goal with |- _ /\ _ => split | |- _ * _ => split end).
-  { intros ? H. rewrite <-H. ring_simplify. defer. }
-  { intros n N N'.
-    cut (1 <= a). math_nia. defer. }
+  defer a_nonneg: (0 <= a). repeat split.
+  { intros ? H. cancel n. defer. }
+  { intros n N N'. cancel n. defer. }
 
   cleanup_cost.
   { monotonic. }
   { dominated. }
-  end defer.
-  { simpl. exists 1 1. splits; math. }
+  end defer. elia.
 Qed.
 
 

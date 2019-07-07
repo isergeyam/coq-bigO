@@ -573,7 +573,9 @@ Ltac weaken_core arg :=
   [ once (typeclasses eauto) | | | xlocal ].
 
 Tactic Notation "weaken" := weaken_core Auto.
-Tactic Notation "weaken" uconstr(arg) := weaken_core (Expr arg).
+Tactic Notation "weaken" uconstr(arg) :=
+  let earg := uconstr:(Expr arg) in
+  weaken_core earg.
 
 (** *)
 

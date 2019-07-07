@@ -1571,3 +1571,12 @@ Ltac xstep_once tt :=
      | |- _ ===> _ => first [ xsimpl | fail 2 ]
      end
   end.
+
+(*******************)
+
+(* TODO: move to CFML *)
+
+Tactic Notation "xapp_spec_no_simpl" constr(H) :=
+  xapp_no_simpl_core H (>>) ltac:(fun _ => idtac).
+Tactic Notation "xapp_spec_no_simpl" constr(H) constr(E) :=
+  xapp_no_simpl_core H E ltac:(fun _ => idtac).

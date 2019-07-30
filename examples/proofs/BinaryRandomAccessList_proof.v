@@ -166,7 +166,7 @@ Ltac inv :=
 Lemma group_ineq : forall n m, 0 <= n - m -> m <= n.
 Proof. intros. math. Qed.
 
-(* Useless *)
+(* True but useless *)
 (*
 Lemma inv_length_correct : forall a ts p L,
     @inv a p ts L ->
@@ -503,28 +503,28 @@ Qed.
 
 Hint Extern 1 (RegisterSpec tail) => Provide (provide_specO tail_spec).
 
-(* XX: abs i / ZNth *)
 Lemma lookup_tree_spec :
   specZ [cost \in_O (fun n => n)]
-    (forall a i (t: tree_ a) p L,
+    (forall a `{Inhab a} i (t: tree_ a) p L,
      btree p t L ->
      0 <= i < length L ->
      app lookup_tree [i t]
        PRE (\$ cost p)
-       POST (fun x => \[Nth (abs i) L x])).
+       POST (fun x => \[ x = L[i] ])).
 Proof.
   begin defer assuming a b. xspecO (fun n => a * n + b).
-  intros a_ i t. revert i.
+  intros a_ Ia i t. revert i.
   induction t; introv BT Bi; inverts BT; xcf.
-  { weaken. xgo. subst. apply~ Nth_zero. rew_list~ in *.
+  { weaken. xgo. subst. rewrite~ read_zero. rew_list~ in *.
     rew_cost. defer. }
   { weaken. xpay. xmatch. subst.
     match goal with B1: btree ?p _ _, B2: btree ?p _ _ |- _ =>
       forwards~: btree_length_correct B1; forwards~: btree_length_correct B2
     end. rew_list in Bi.
     xif; rewrites~ pow_succ_quot in *.
-    { xapplys~ IHt1. apply~ Nth_app_l. }
-    { xapplys~ IHt2. apply~ Nth_app_r'. math_lia. }
+    { xapplys~ IHt1. rewrite read_app. case_if~. }
+    { xapplys~ IHt2. rewrite read_app. case_if~.
+      now match goal with H: length L1 = _ |- _ => rewrite H end. }
 
     rew_cost. subst. cancel p0. case_max; auto; defer. apply~ btree_size_pos.
     case_max; defer. }
@@ -534,41 +534,34 @@ Qed.
 
 Hint Extern 1 (RegisterSpec lookup_tree) => Provide (provide_specO lookup_tree_spec).
 
-(* XXX *)
-Definition Update A (n:nat) (x:A) l l' :=
-    length l' = length l
-  /\ (forall y m, Nth m l y -> m <> n -> Nth m l' y)
-  /\ Nth n l' x.
-
-(* XX abs i *)
 Lemma update_tree_spec :
   specZ [cost \in_O (fun n => n)]
-    (forall a i (x: a) (t: tree_ a) p L,
+    (forall a `{Inhab a} i (x: a) (t: tree_ a) p L,
      btree p t L ->
      0 <= i < length L ->
      app update_tree [i x t]
        PRE (\$ cost p)
-       POST (fun t' => \[exists L', btree p t' L' /\ Update (abs i) x L L'])).
+       POST (fun t' => \[btree p t' L[i := x]])).
 Proof.
   begin defer assuming a b. xspecO (fun n => a * n + b).
-  intros a_ i x t. revert i x. induction t; introv BT Bi; inverts BT; xcf.
-  { weaken. xgo~. subst. exists. splits~. constructors. admit. rew_list~ in *.
+  intros a_ Ia i x t. revert i x. induction t; introv BT Bi; inverts BT; xcf.
+  { weaken. xgo~. subst. rewrite update_zero. constructors. now rew_list~ in *.
     rew_cost. defer. }
   { weaken. xpay. xmatch. subst. xcleanpat.
     match goal with B1: btree ?p _ _, B2: btree ?p _ _ |- _ =>
       forwards~: btree_length_correct B1; forwards~: btree_length_correct B2
     end. rew_list in Bi.
     xif; rewrites~ pow_succ_quot in *.
-    { xapp_spec~ IHt1. intros; unpack.
-      xret. hsimpl. exists. split. constructors~. admit. }
-    { xapp_spec~ IHt2. intros; unpack.
-      xret. hsimpl. exists. split. constructors~. admit. }
+    { xapp_spec~ IHt1. intros. xret. hsimpl.
+      rewrite~ update_app_l. constructors~. }
+    { xapp_spec~ IHt2. intros. xret. hsimpl.
+      erewrite~ update_app_r. constructors~. all: math. }
 
     rew_cost. subst. cancel p0. case_max; auto; defer. apply~ btree_size_pos.
     case_max; defer. }
   { assert (0 <= a) by (deferred; math). monotonic. } { dominated. }
   end defer. elia.
-Admitted.
+Qed.
 
 Hint Extern 1 (RegisterSpec update_tree) => Provide (provide_specO update_tree_spec).
 
@@ -684,22 +677,25 @@ Qed.
 Lemma lookup_spec_ind :
   specO product_positive_order ZZle
     (fun cost =>
-     forall a i (ts: rlist_ a) p L,
+     forall a `{Inhab a} i (ts: rlist_ a) p L,
      inv p ts L ->
      0 <= i < length L ->
      app lookup [i ts]
        PRE (\$ cost (p, length ts))
-       POST (fun x => \[Nth (abs i) L x]))
+       POST (fun x => \[x = L[i]]))
     (fun '(m,n) => m + n).
 Proof.
   xspecO_refine recursive. intros costf ? ? ?.
-  intros a_ i ts. revert i. induction ts; introv I Bi.
+  intros a_ Ia i ts. revert i. induction ts; introv I Bi.
   { inv. math. }
   { inverts I. xcf. weaken. xpay. xmatch. { xapps~. }
     xcleanpat. unpack; subst. xapps~. xif.
-    { xapps~. erewrite~ btree_size_length. math. hsimpl. apply~ Nth_app_l. }
+    { xapps~. erewrite~ btree_size_length. math. hsimpl.
+      rewrite read_app. case_if~.
+      false. forwards~: btree_size_length b. }
     { xapps~. forwards~: btree_size_length. rew_list~ in *.
-      xapps~. hsimpl. apply~ Nth_app_r'. math_lia. }
+      xapps~. hsimpl. rewrite read_app. case_if~.
+      now match goal with H: length T = _ |- _ => rewrite H end. }
 
     rew_list. rew_cost.
     asserts~ [HH1 HH2]: (0 <= p /\ 0 <= length ts).
@@ -753,15 +749,14 @@ Proof.
   end defer. elia.
 Qed.
 
-(* (* XX abs i *) *)
 Lemma lookup_spec :
   specZ [cost \in_O Z.log2]
-    (forall a i (ts: rlist_ a) L,
+    (forall a `{Inhab a} i (ts: rlist_ a) L,
      Rlist ts L ->
      0 <= i < length L ->
      app lookup [i ts]
        PRE (\$ cost (length L))
-       POST (fun x => \[Nth (abs i) L x])).
+       POST (fun x => \[x = L[i]])).
 Proof.
   xspecO (fun x => cost lookup_spec_ind (0, Z.log2 ((2 * x) + 1))).
   { intros. weaken. xapplys~ lookup_spec_ind.
@@ -773,35 +768,88 @@ Proof.
     unfold product_positive_order. limit. dominated. }
 Qed.
 
-(* TODO *)
-(*
 Lemma update_spec_ind :
-  forall a i (x: a) (ts: rlist_ a) p L,
-  inv p ts L ->
-  ZInbound i L ->
-  app update [i x ts]
-    PRE \[]
-    POST (fun ts' => \[exists L', inv p ts' L' /\ ZUpdate i x L L']).
+  specO product_positive_order ZZle (fun cost =>
+    forall a `{Inhab a} i (x: a) (ts: rlist_ a) p L,
+    inv p ts L ->
+    0 <= i < length L ->
+    app update [i x ts]
+      PRE (\$ cost (p, length ts))
+      POST (fun ts' => \[inv p ts' L[i := x]]))
+  (fun '(m, n) => m + n).
 Proof.
-  intros a i x ts. revert i x. induction ts; introv I Bi; inverts I; xcf.
-  - xgo. apply~ ZInbound_nil_inv.
-  - { xmatch. xapps~. intros; unpack. xret~.
-      xapps~. unpack; subst.
-      forwards~: length_correct. forwards~: btree_size_correct.
-      xif. xapps~. apply~ ZInbound_app_l_inv.
-      intros (?&?&?). xret. hsimpl. exists___. split; eauto. apply~ ZUpdate_app_l.
-      xapps~. xapps~. apply~ ZInbound_app_r_inv.
-      intros (?&?&?). xret. hsimpl. exists___. split; eauto. apply~ ZUpdate_app_r. }
+  xspecO_refine recursive. intros costf ? ? ?.
+  intros a_ Ia i x ts. revert i x. induction ts; introv I Bi.
+  { inv. math. }
+  { inverts I; xcf. weaken. xpay.
+    xmatch.
+    { subst. xapps~. intros; unpack. xret~. hsimpl~. constructors~.
+      intros Hnil. rewrite <-length_zero_eq_eq_nil in Hnil.
+      now rewrite length_update in Hnil. }
+    xapps~. unpack; subst.
+    forwards~: btree_length_correct. forwards~: btree_size_correct.
+    xif.
+    { xapps~. intros. xret. hsimpl. rewrite~ update_app_l. constructors~. }
+    { xapps~. xapps~. now rew_list~ in *. intros. xret. hsimpl.
+      erewrite update_app_r with (i := 2^p). constructors~. all: math. }
+
+    rew_list. rew_cost. asserts~ [HH1 HH2]: (0 <= p /\ 0 <= length ts).
+    generalize p (length ts) HH1 HH2; defer. }
+
+  close_cost.
+  begin defer assuming a b c d.
+  exists (fun '(m, n) => a*m + b*n + c*cost update_tree_spec (m+n) + d).
+  split.
+  { intros m n Hm Hn. math_rewrite (m+(1+n) = m+1+n).
+    rewrite~ (cost_monotonic update_tree_spec m (m+1+n)).
+    cancel (cost update_tree_spec (m+1+n)). case_max; auto with zarith; defer.
+    cancel m; cancel n. all: repeat case_max. all: defer. }
+  cleanup_cost.
+  { intros [m n] [m' n'] [Hm Hn].
+    assert (0 <= a /\ 0 <= b /\ 0 <= c) by (deferred; math_lia); unpack.
+    forwards~ M: cost_monotonic update_tree_spec (m+n) (m'+n').
+    auto with zarith. }
+
+  apply_nary dominated_sum_distr_nary.
+  { apply_nary dominated_sum_distr_nary.
+    { apply_nary dominated_sum_distr_nary.
+      { apply_nary dominated_mul_cst_l_1_nary.
+        apply_nary dominated_sum_r_nonneg_1_nary; fold_product.
+        { apply ultimately_lift1. rewrite~ positiveP. }
+        { apply ultimately_lift2. ultimately_greater. }
+        reflexivity. }
+      { apply_nary dominated_mul_cst_l_1_nary.
+        apply_nary dominated_sum_r_nonneg_2_nary; fold_product.
+        { apply ultimately_lift1. rewrite~ positiveP. }
+        { apply ultimately_lift2. ultimately_greater. }
+        reflexivity. } }
+    { apply_nary dominated_mul_cst_l_1_nary.
+      eapply dominated_comp_eq with
+          (J := Z_filterType)
+          (p := fun '((t,x):int*int) => t + x : int).
+
+      apply (cost_dominated update_tree_spec). limit.
+      intros [? ?]. reflexivity. intros [? ?]. reflexivity. } }
+  dominated.
+
+  end defer. elia.
 Qed.
 
 Lemma update_spec :
-  forall a i (x: a) (ts: rlist_ a) L,
-  Rlist ts L ->
-  ZInbound i L ->
-  app update [i x ts]
-    PRE \[]
-    POST (fun l' => \[exists L', Rlist l' L' /\ ZUpdate i x L L']).
-Proof. intros. xapp_spec~ update_spec_ind. Qed.
-*)
+  specZ [cost \in_O Z.log2]
+    (forall a `{Inhab a} i (x: a) (ts: rlist_ a) L,
+     Rlist ts L ->
+     0 <= i < length L ->
+     app update [i x ts]
+       PRE (\$ cost (length L))
+       POST (fun l' => \[Rlist l' L[i := x]])).
+Proof.
+  xspecO (fun x => cost update_spec_ind (0, Z.log2 ((2 * x) + 1))).
+  { intros. weaken. xapplys~ update_spec_ind.
+    apply cost_monotonic. splits~. rewrite~ ts_bound_log. math. }
+  { monotonic. }
+  { etransitivity. apply dominated_comp. apply cost_dominated.
+    unfold product_positive_order. limit. dominated. }
+Qed.
 
 End BinaryRandomAccessListSpec.

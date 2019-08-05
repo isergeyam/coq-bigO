@@ -1,4 +1,5 @@
 Require Import CFML.CFLib.
+Require Import ssreflect.
 Open Scope Z_scope.
 
 (** Utilities *)
@@ -53,23 +54,23 @@ Lemma big_add_of_acc: forall l acc,
   big_add_acc l acc = big_add l + acc.
 Proof.
   induction l; intros;
-  rewrite ?big_add_nil, ?big_add_acc_nil, ?big_add_cons, ?big_add_acc_cons.
+  rewrite ?big_add_nil ?big_add_acc_nil ?big_add_cons ?big_add_acc_cons.
   - math.
-  - rewrite (IHl (acc + a)), (IHl a). math.
+  - rewrite (IHl (acc + a)) (IHl a). math.
 Qed.
 
 Lemma big_add_app: forall l1 l2,
   big_add (l1 ++ l2) = big_add l1 + big_add l2.
 Proof.
-  induction l1; intros; rew_list; rewrite ?big_add_nil, ?big_add_cons.
+  induction l1; intros; rew_list; rewrite ?big_add_nil ?big_add_cons.
   - math.
-  - rewrite !big_add_of_acc, IHl1. math.
+  - rewrite !big_add_of_acc IHl1. math.
 Qed.
 
 Lemma big_add_snoc: forall l x,
   big_add (l & x) = big_add l + x.
 Proof.
-  intros. now rewrite big_add_app, big_add_cons, big_add_acc_nil.
+  intros. now rewrite big_add_app big_add_cons big_add_acc_nil.
 Qed.
 
 (* Iterated (-) *)
@@ -90,9 +91,9 @@ Lemma big_sub_big_add: forall l x,
   big_sub x l = x - big_add l.
 Proof.
   induction l; intros;
-  rewrite ?big_sub_nil, ?big_add_nil, ?big_sub_cons, ?big_add_cons.
+  rewrite ?big_sub_nil ?big_add_nil ?big_sub_cons ?big_add_cons.
   - now rewrite Z.sub_0_r.
-  - rewrite !IHl, (big_add_of_acc _ a). math.
+  - rewrite !IHl (big_add_of_acc _ a). math.
 Qed.
 
 (********************************************************************)
@@ -351,19 +352,19 @@ Definition heap_is_credits_list (l : list int) : hprop :=
 Notation "\$* l" := (heap_is_credits_list l) (at level 40).
 
 Lemma credits_list_nil: \$* nil = \[].
-Proof. unfold heap_is_credits_list. now rewrite big_add_nil, credits_zero_eq. Qed.
+Proof. unfold heap_is_credits_list. now rewrite big_add_nil credits_zero_eq. Qed.
 
 Lemma credits_list_cons x l: \$* (x :: l) = \$ x \* \$* l.
 Proof.
   unfold heap_is_credits_list.
-  now rewrite big_add_cons, big_add_of_acc, credits_split_eq, star_comm.
+  now rewrite big_add_cons big_add_of_acc credits_split_eq star_comm.
 Qed.
 
 Lemma credits_list_app l1 l2:
   \$* (l1 ++ l2) = \$* l1 \* \$* l2.
 Proof.
   unfold heap_is_credits_list.
-  now rewrite big_add_app, credits_split_eq.
+  now rewrite big_add_app credits_split_eq.
 Qed.
 
 (*****************)
@@ -391,7 +392,7 @@ Proof.
   intros. unfold GetCredits', GetCredits, Star, Concat in *.
   subst. rewrite credits_list_app.
   rewrite <-!star_assoc. fequal.
-  rewrite star_comm, <-star_assoc. fequal.
+  rewrite star_comm -star_assoc. fequal.
   now rewrite star_comm.
 Qed.
 
@@ -399,7 +400,7 @@ Instance GetCredits'_credits: forall c,
   GetCredits' (\$ c) \[] (c :: nil).
 Proof.
   intros. unfold GetCredits', GetCredits.
-  now rewrite star_neutral_l, credits_list_cons, credits_list_nil,
+  now rewrite star_neutral_l credits_list_cons credits_list_nil
     star_neutral_r.
 Qed.
 
@@ -407,7 +408,7 @@ Instance GetCredits_no_credits: forall h,
   GetCredits h h nil
 | 100.
 Proof.
-  intros. unfold GetCredits. now rewrite credits_list_nil, star_neutral_r.
+  intros. unfold GetCredits. now rewrite credits_list_nil star_neutral_r.
 Qed.
 
 Goal forall H1 H2 H3 a b c, exists H d,
@@ -509,7 +510,7 @@ Lemma HasSingleCreditsExpr_of_GetCredits: forall h h' cs c,
   HasSingleCreditsExpr h h' c.
 Proof.
   intros. unfold GetCredits, HasSingleCreditsExpr in *.
-  subst. now rewrite credits_list_cons, credits_list_nil, star_neutral_r.
+  subst. now rewrite credits_list_cons credits_list_nil star_neutral_r.
 Qed.
 
 (* FUTURE: could that be expressed as a "Hint Committed" in the future?
@@ -651,3 +652,49 @@ Proof.
   introv -> <-. unfold RemoveGC.
   now rewrite <-!star_assoc, (star_comm _ \GC).
 Qed.
+
+(**********************************************************)
+
+Definition big_opp (l: list int): list int :=
+  List.map Z.opp l.
+
+Lemma big_opp_cancel_credits: forall l,
+  \[] ==> \$* l \* \$* (big_opp l).
+Proof.
+  induction l; rewrite //= ?credits_list_nil ?credits_list_cons.
+  { hsimpl. }
+  { hchange IHl.
+    rewrite -!star_assoc (star_assoc (\$ a)) (star_comm (\$ a)) -star_assoc.
+    apply star_cancel.
+    rewrite star_assoc credits_join_eq Z.add_opp_diag_r credits_zero_eq.
+    rewrite star_comm. apply pred_incl_refl. }
+Qed.
+
+Class OppIntList (l1 l2 : list int) :=
+  MkOppIntList : l2 = big_opp l1.
+
+Hint Mode OppIntList ! - : typeclass_instances.
+
+Instance OppIntList_nil:
+  OppIntList nil nil.
+Proof. reflexivity. Qed.
+
+Instance OppIntList_cons: forall x l l',
+  OppIntList l l' ->
+  OppIntList (x :: l) (-x :: l').
+Proof. introv ->. reflexivity. Qed.
+
+Lemma move_credits_r2l : forall h1 h2 h2' cs cs' hcs,
+  GetCredits h2 h2' cs ->
+  OppIntList cs cs' ->
+  CreditsHeap cs' hcs ->
+  h1 \* hcs ==> h2' ->
+  h1 ==> h2.
+Proof.
+  introv -> -> -> HH.
+  hchange (big_opp_cancel_credits cs).
+  hchange HH. hsimpl.
+Qed.
+
+Ltac credr2l :=
+  eapply move_credits_r2l; [ once (typeclasses eauto) .. |].

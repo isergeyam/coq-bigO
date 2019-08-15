@@ -24,24 +24,6 @@ Require Export PolTac.PolTac.
 
 (********************************************************************)
 
-(* TODO: prove & move *)
-
-Lemma monotonic_cumul_Z : forall (f : Z -> Z) (lo : Z),
-  (forall x, lo <= x -> 0 <= f x) ->
-  monotonic Z.le Z.le (fun n => cumul lo n f).
-Proof.
-  intros * Hf x1 x2 ?.
-  tests: (lo <= x1); cycle 1.
-  { rewrite cumulP at 1. rewrite interval_empty. 2: math. cbn.
-    apply cumul_nonneg. intros. apply~ Hf. }
-  rewrite~ (@cumul_split x1 lo x2). pols. apply~ cumul_nonneg.
-  intros. apply~ Hf. math.
-Qed.
-
-Hint Resolve monotonic_cumul_Z : monotonic.
-
-(********************************************************************)
-
 Record specO
        (A : filterType) (le : A -> A -> Prop)
        (spec : (A -> Z) -> Prop)

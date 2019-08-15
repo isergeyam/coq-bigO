@@ -1,9 +1,9 @@
 Require Import ZArith.
 Require Import Psatz.
 Require Import Coq.Classes.RelationClasses.
-Require Import TLC.LibTactics.
-Require Import TLC.LibOrder.
-Require Import LibFunOrd LibZExtra.
+Require Import TLC.LibTactics TLC.LibIntTactics.
+Require Import TLC.LibOrder TLC.LibLogic.
+Require Import LibFunOrd LibZExtra Cumul.
 Require Import Filter.
 
 (* todo: move *)
@@ -165,6 +165,19 @@ Proof.
   intros f g Hf Hg x y H. unfold ZZle. auto.
 Qed.
 
+Lemma monotonic_cumul_Z : forall (f : Z -> Z) (lo : Z),
+  (forall x, lo <= x -> 0 <= f x) ->
+  monotonic Z.le Z.le (fun n => cumul lo n f).
+Proof.
+  intros * Hf x1 x2 ?.
+  tests: (lo <= x1); cycle 1.
+  { rewrite cumulP at 1. rewrite interval_empty. 2: math. cbn.
+    apply cumul_nonneg. intros. apply~ Hf. }
+  rewrite~ (@cumul_split x1 lo x2).
+  rewrite <-(@cumul_nonneg x1 x2 f). math.
+  intros. apply~ Hf. math.
+Qed.
+
 End Z_facts.
 
 Section Ultimately_Z_facts.
@@ -184,7 +197,7 @@ Proof.
   introv (Pf & Pg & Hf & Hg). intros a1 a2 (a_le_a1 & a_le_a2 & a1_le_a2).
   forwards~: Hf a a1; forwards~: Hg a a1;
   forwards~: Hf a1 a2; forwards~: Hg a1 a2;
-  try (splits; first [apply OA | assumption]).
+  try (repeat split; first [apply OA | assumption]).
   nia.
 Qed.
 
@@ -218,6 +231,7 @@ Hint Extern 2 (monotonic _ _ (Z.pow ?b)) =>
   [ apply monotonic_pow_r | ].
 (* todo: Z.pow _ ?e *)
 Hint Resolve monotonic_Z_to_ZZ : monotonic.
+Hint Resolve monotonic_cumul_Z : monotonic.
 
 Hint Extern 1 (monotonic _ _ (fun _ => ?f _)) =>
   match goal with

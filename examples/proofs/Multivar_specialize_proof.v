@@ -120,11 +120,11 @@ Proof.
   { intros i I. xpay.
     weaken. xfor_inv (fun (_:int) => \[]). math.
     intros j J. xpay. xret. hsimpl. hsimpl. hsimpl.
-    { simpl. rewrite cumulP. rewrite big_const_Z.
+    { simpl. rewrite~ cumul_const.
       hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
   }
   hsimpl. hsimpl.
-  { simpl. rewrite cumulP. rewrite big_const_Z.
+  { simpl. rewrite~ cumul_const.
     hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
 
   cleanup_cost.
@@ -200,11 +200,11 @@ Proof.
   { intros i I. xpay.
     weaken. xfor_inv (fun (_:int) => \[]). math.
     intros j J. xpay. xret. hsimpl. hsimpl. hsimpl.
-    { simpl. rewrite cumulP. rewrite big_const_Z.
+    { simpl. rewrite~ cumul_const.
       hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
   }
   hsimpl. hsimpl.
-  { simpl. rewrite cumulP. rewrite big_const_Z.
+  { simpl. rewrite~ cumul_const.
     hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
 
   cleanup_cost.
@@ -277,11 +277,11 @@ Proof.
   { intros i I. xpay.
     weaken. xfor_inv (fun (_:int) => \[]). math.
     intros j J. xpay. xret. hsimpl. hsimpl. hsimpl.
-    { simpl. rewrite cumulP. rewrite big_const_Z.
+    { simpl. rewrite~ cumul_const.
       hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
   }
   hsimpl. hsimpl.
-  { simpl. rewrite cumulP. rewrite big_const_Z.
+  { simpl. rewrite~ cumul_const.
     hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
 
   cleanup_cost.
@@ -316,11 +316,11 @@ Proof.
   { intros i I. xpay.
     weaken. xfor_inv (fun (_:int) => \[]). math.
     intros j J. xpay. xret. hsimpl. hsimpl. hsimpl.
-    { simpl. rewrite cumulP. rewrite big_const_Z.
+    { simpl. rewrite~ cumul_const.
       hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
   }
   hsimpl. hsimpl.
-  { simpl. rewrite cumulP. rewrite big_const_Z.
+  { simpl. rewrite~ cumul_const.
     hide_evars_then ltac:(fun _ => ring_simplify). reflexivity. }
 
   cleanup_cost.
@@ -483,3 +483,78 @@ Proof.
   { intro U. exists 1. revert U. filter_closed_under_intersection.
     intros [x y]. math_nia. }
 Qed.
+
+
+(**********)
+
+Notation "'len'" := (LibListZ.length).
+
+Definition array_append_sum :=
+  specZ [cost \in_O (fun n => n)]
+    (forall (A: Type) (a1 a2: array A) (L1 L2: list A),
+       app Array_ml.append [a1 a2]
+         PRE (\$ cost (len L1 + len L2) \* a1 ~> Array L1 \* a2 ~> Array L2)
+         POST (fun (_:array A) => a1 ~> Array L1 \* a2 ~> Array L2)).
+
+Definition array_append_2 :=
+  specO
+    (product_filterType Z_filterType Z_filterType) ZZle
+    (fun cost => forall (A: Type) (a1 a2: array A) (L1 L2: list A),
+      app Array_ml.append [a1 a2]
+        PRE (\$ cost (len L1, len L2) \* a1 ~> Array L1 \* a2 ~> Array L2)
+        POST (fun (_:array A) => a1 ~> Array L1 \* a2 ~> Array L2))
+    (fun '(m, n) => m + n).
+
+(* This direction is natural *)
+Goal array_append_sum -> array_append_2.
+  unfold array_append_sum, array_append_2. intro S.
+  xspecO (fun '(m, n) => cost S (m + n)).
+  { intros. xapply~ S. }
+  { intros [m n] [m' n'] [? ?]. apply (cost_monotonic S). math. }
+  { eapply dominated_comp_eq with (f:=cost S) (p:=(fun '(m,n)=>m+n)).
+    now eapply cost_dominated. now limit. all: now intros [? ?]; eauto. }
+Qed.
+
+(* This one is slightly more tricky *)
+Goal array_append_2 -> array_append_sum.
+  unfold array_append_sum, array_append_2. intros S.
+  xspecO (fun s => cost S (s, s)).
+  { intros. xapply~ S. hsimpl_credits. rewrite le_zarith.
+    apply Zle_minus_le_0. apply cost_monotonic. unfold ZZle. math. }
+  { intros ? ? ?. apply cost_monotonic. unfold ZZle. math. }
+  { etransitivity.
+    - eapply dominated_comp_eq with (f:=cost S) (p:=fun x=>(x,x)).
+      now eapply cost_dominated. now limit. auto. cbn. reflexivity.
+    - dominated. }
+Qed.
+
+Parameter array_append_sum_spec : array_append_sum.
+
+Parameter g_spec_prod :
+  specZ [cost \in_O (fun n => n)]
+    (forall (n m: Z),
+       0 <= n -> 0 <= m ->
+       app g [(n, m)]
+         PRE (\$ cost (n * m))
+         POST (fun (_:unit) => \[])).
+
+Ltac r2l := credr2l; apply pred_incl_refl.
+
+Lemma append_g_spec :
+  specZ [cost \in_O (fun n => n)]
+    (forall (a1 a2: array int) (L1 L2: list int),
+     app append_g [a1 a2]
+       PRE (\$ cost (len L1 * len L2) \* a1 ~> Array L1 \* a2 ~> Array L2)
+       POST (fun (_:unit) => \[])).
+Proof.
+  xspecO_refine recursive. intros costf **.
+  xcf. xpay. r2l.
+  pose proof array_append_sum_spec as AS. unfold array_append_sum in AS.
+  xapp_spec (spec AS). r2l. xmatch.
+  xapps. r2l. xapps. r2l.
+  pose proof g_spec_prod as GS.
+  xapp_spec (spec GS). math. math. r2l.
+  intros _. rewrite !credits_join_eq. hsimpl. rewrite le_zarith.
+  ring_simplify.
+  enough (cost AS (len L1 + len L2) + cost GS (len L1 * len L2) + 3 <= costf (len L1 * len L2)). math.
+Abort.

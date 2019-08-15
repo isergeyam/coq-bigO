@@ -29,7 +29,14 @@ Require Export PolTac.PolTac.
 Lemma monotonic_cumul_Z : forall (f : Z -> Z) (lo : Z),
   (forall x, lo <= x -> 0 <= f x) ->
   monotonic Z.le Z.le (fun n => cumul lo n f).
-Proof. admit. Admitted.
+Proof.
+  intros * Hf x1 x2 ?.
+  tests: (lo <= x1); cycle 1.
+  { rewrite cumulP at 1. rewrite interval_empty. 2: math. cbn.
+    apply cumul_nonneg. intros. apply~ Hf. }
+  rewrite~ (@cumul_split x1 lo x2). pols. apply~ cumul_nonneg.
+  intros. apply~ Hf. math.
+Qed.
 
 Hint Resolve monotonic_cumul_Z : monotonic.
 
@@ -224,6 +231,16 @@ Proof.
     - dominated. }
   { eapply SpecO with cost; auto.
     intros. match goal with H : _ |- _ => rewrite H end. auto. }
+Qed.
+
+Lemma cleanup_cost_eq : forall (A: filterType) le cost0 cost1 bound spec,
+  (forall (x:A), cost0 x = cost1 x) ->
+  cleanup_cost le cost1 bound spec ->
+  cleanup_cost le cost0 bound spec.
+Proof.
+  intros * Hcost [cost_clean_eq [cost_clean [[[? ?] ?] ?]]].
+  unfold cleanup_cost. exists cost_clean_eq cost_clean. split~.
+  intros. rewrite Hcost. auto.
 Qed.
 
 (* TODO: implement using setoid-rewrite? *)

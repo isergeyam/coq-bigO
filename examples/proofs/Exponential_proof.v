@@ -1,5 +1,5 @@
 Set Implicit Arguments.
-Require Import TLC.LibTactics.
+Require Import TLC.LibTactics TLC.LibIntTactics.
 (* Load the CFML library, with time credits. *)
 Require Import CFML.CFLibCredits.
 Require Pervasives_ml.
@@ -47,12 +47,12 @@ Proof.
   generalize n N. defer. close_cost.
 
   exists (fun n => 2^(n+1)-1). split.
-  intros. rewrite~ Z.max_r. ring_simplify.
-  ring_simplify ((n-1)+1). rewrite~ pow2_succ.
+  intros. rewrite~ Z.max_r. ring_simplify. rew_pow~ 2 n.
   cleanup_cost. monotonic. dominated.
 Qed.
 
-Lemma f_spec4 :
+(* Alternatively, follow the substitution method all the way... *)
+Lemma f_spec' :
   specZ [cost \in_O (fun n => 2 ^ n)]
     (forall (n: int),
       0 <= n ->
@@ -70,15 +70,48 @@ Proof.
   begin defer assuming a b. defer Ha: (0 <= a).
   sets cost: (fun (n:Z_filterType) => a * 2^n + b).
   assert (cost_nonneg: forall n, 0 <= n -> 0 <= cost n).
-  { intros n N. unfold cost.
-    asserts_rewrite <-(1 <= 2^n). { forwards~: Z.pow_pos_nonneg 2 n. }
-    ring_simplify. defer. }
+  { intros n N. unfold cost. rewrite~ <- pow2_ge_1. pols. defer. }
 
   exists cost. split.
-  { intros n N. cases_if; ring_simplify.
-    { subst n. unfold cost. ring_simplify. defer. }
-    { unfold cost.
-      transitivity (2 * 2 ^ (n-1) * a + 2 * b + 1). math_lia.
-      rewrite~ <-pow2_succ. ring_simplify ((n-1)+1). pols. defer. } }
+  { intros n N. cases_if; ring_simplify; unfold cost.
+    { subst n. ring_simplify. defer. }
+    { rew_pow~ 2 (n-1). pols. ring_simplify. (* FIXME: elia *) defer. } }
   cleanup_cost. monotonic. dominated. end defer. elia.
+Qed.
+
+Lemma cumul_pow n :
+  0 <= n ->
+  cumul 0 n (fun i => 2 ^ i) = 2^n - 1.
+Proof.
+  induction_wf: (downto 0) n.
+  unfold cumul. intro. interval_case_r 0 n.
+  { intros. cbn. assert (n = 0) as -> by math. cbn. math. }
+  { intros. cbn. rewrite List.map_app, Big.big_app. 2: typeclass.
+    cbn. unfold cumul in IH. rewrite~ IH. rew_pow~ 2 (n-1). }
+Qed.
+
+Lemma loop_spec :
+  specZ [cost \in_O (fun n => 2 ^ n)]
+    (forall (n:int),
+      1 <= n ->
+      app loop [n]
+        PRE (\$ (cost n))
+        POST (fun (tt:unit) => \[])).
+Proof.
+  xspecO_refine straight_line. intros n Hn. xcf. xpay.
+  xfor_inv (fun (i:int) => \[]). math.
+  { intros i Hi. xpay. xapp_spec (spec f_spec). math. }
+  hsimpl. hsimpl.
+  cleanup_cost. monotonic.
+  { apply dominated_sum_distr; [| now dominated].
+    rewrite dominated_big_sum with (g := (fun i => 2^i)).
+    { erewrite dominated_ultimately_le_nonneg; swap 1 2.
+      - exists 0. intros. split.
+        now apply cumul_nonneg; eauto using Z.pow_nonneg with maths.
+        rewrite~ cumul_pow. apply Z.le_refl.
+      - dominated. }
+    { apply ultimately_gt_ge, filter_universe_alt. intros a.
+      rewrite~ <-(cost_nonneg f_spec a). }
+    { exists 0. intros. apply~ Z.pow_pos_nonneg. }
+    dominated. }
 Qed.

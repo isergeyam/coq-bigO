@@ -56,3 +56,15 @@ let rec quick n =
     let2 n;
     quick (n - 1)
   )
+
+let rec walk (a: int array) (i: int): int =
+  if a.(i) <> 0 && i < Array.length a - 1 then
+    walk a (i+1)
+  else
+    i+1
+
+let full_walk (a: int array) =
+  let j = ref 0 in
+  while !j < Array.length a do
+    j := walk a !j
+  done

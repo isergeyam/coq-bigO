@@ -16,6 +16,7 @@ Require Import BigEnough.
 Require Import Monotonic.
 Require Import TLC.LibAxioms.
 Require Import TLC.LibLogic.
+Require Import TLC.LibWf.
 
 (* -------------------------------------------------------------------------- *)
 
@@ -179,6 +180,14 @@ Proof.
   eauto with zarith.
 Qed.
 
+Lemma dominated_ultimately_le_nonneg A f g :
+  ultimately A (fun x => 0 <= f x <= g x) ->
+  dominated A f g.
+Proof.
+  intros U. apply dominated_ultimately_le. revert U.
+  filter_closed_under_intersection. intros. lia.
+Qed.
+
 End Domination.
 
 Arguments dominated : clear implicits.
@@ -258,7 +267,7 @@ Goal dominated Z_filterType (fun x => (x+0)+0) (fun x => x).
   { setoid_rewrite Z.add_0_r. admit. }
   rewrite_strat (topdown (hints myhints)).
   apply dominated_reflexive.
-Admitted.
+Abort.
 
 Goal dominated Z_filterType (fun x => x) (fun x => x+0).
   setoid_rewrite Z.add_0_r.
@@ -649,6 +658,11 @@ Proof.
   nia.
 Qed.
 
+Lemma dominated_cst_pow : forall a c,
+  0 < a ->
+  dominated Z_filterType (fun _ => c) (fun n => a^n).
+Proof. intros. apply dominated_cst_limit. limit. Qed.
+
 Lemma dominated_log A :
   forall f g : A -> Z,
     ultimately A (fun x => 2 <= g x) ->
@@ -681,25 +695,166 @@ End DominatedLaws.
 
 (* TEMPORARY *)
 
-Definition interval (lo hi : Z) : list Z.
-Proof. admit. Admitted.
+Open Scope list_scope.
+
+Fixpoint seqZ (start : Z) (len : nat) : list Z :=
+  match len with
+  | 0%nat => nil
+  | S len => start :: seqZ (start + 1) len
+  end.
+
+Lemma seqZ_S_r : forall len start,
+  seqZ start (S len) = seqZ start len ++ (start + Z.of_nat len) :: nil.
+Proof.
+  induction len.
+  { intros. cbn. rewrite~ Z.add_0_r. }
+  { intros. cbn. f_equal. cbn in IHlen. rewrite IHlen.
+    f_equal. f_equal. lia. }
+Qed.
+
+Definition interval (lo hi : Z) : list Z :=
+  seqZ lo (Z.to_nat (hi - lo)).
+
+Lemma Z_to_nat_pos_inv : forall x n,
+  (0 < n)%nat ->
+  Z.to_nat x = n ->
+  0 < x.
+Proof. intros. destruct x; cbn in *; lia. Qed.
+
+Lemma Z_to_nat_zero_inv : forall x,
+  Z.to_nat x = 0%nat ->
+  x <= 0.
+Proof. intros. destruct x; cbn in *; lia. Qed.
+
+Lemma interval_empty : forall lo hi,
+  hi <= lo ->
+  interval lo hi = nil.
+Proof.
+  intros. unfold interval.
+  assert (Z.to_nat (hi - lo) = 0%nat) as ->.
+  { apply LibInt.to_nat_neg. rewrite LibInt.le_zarith. lia. }
+  reflexivity.
+Qed.
+
+Lemma interval_cons_l : forall lo hi,
+  lo < hi ->
+  interval lo hi = lo :: interval (lo + 1) hi.
+Proof.
+  intros. unfold interval.
+  gen_eq d: (Z.to_nat (hi - lo)). intro Hd. destruct d.
+  { zify. rewrite Z2Nat.id in *; lia. }
+  { symmetry in Hd. forwards~: Z_to_nat_pos_inv Hd. lia.
+    cbn. f_equal. f_equal. zify. rewrite Z2Nat.id in *; lia. }
+Qed.
+
+Lemma interval_cons_r' : forall lo hi,
+  lo <= hi ->
+  interval lo (hi + 1) = interval lo hi ++ hi :: nil.
+Proof.
+  intros. unfold interval.
+  gen_eq d: (Z.to_nat (hi - lo)). intro Hd. symmetry in Hd. destruct d.
+  { apply Z_to_nat_zero_inv in Hd. cbn.
+    assert (hi + 1 - lo = 1) as -> by lia. cbv. f_equal. lia. }
+  { set (d' := S d) in *.
+    assert (Z.to_nat (hi + 1 - lo) = S d') as ->.
+    { zify. rewrite Z2Nat.id in *; lia. }
+    rewrite seqZ_S_r. f_equal. f_equal. zify. rewrite Z2Nat.id in *; lia. }
+Qed.
+
+Lemma interval_cons_r : forall lo hi,
+  lo < hi ->
+  interval lo hi = interval lo (hi - 1) ++ (hi - 1) :: nil.
+Proof.
+  intros. assert (hi = (hi - 1) + 1) as -> by lia.
+  rewrite interval_cons_r'. 2: lia. repeat f_equal; lia.
+Qed.
+
+Lemma interval_destruct_l : forall lo hi,
+  (hi <= lo /\ interval lo hi = nil) \/
+  (lo < hi /\ interval lo hi = lo :: interval (lo + 1) hi).
+Proof.
+  intros. tests~: (hi <= lo).
+  { left. splits~. rewrite~ interval_empty. }
+  { right. splits~. lia. rewrite~ interval_cons_l. lia. }
+Qed.
+
+Lemma interval_destruct_r : forall lo hi,
+  (hi <= lo /\ interval lo hi = nil) \/
+  (lo < hi /\ interval lo hi = interval lo (hi - 1) ++ (hi - 1) :: nil).
+Proof.
+  intros. tests~: (hi <= lo).
+  { left. splits~. rewrite~ interval_empty. }
+  { right. splits~. lia. rewrite~ interval_cons_r. lia. }
+Qed.
+
+Ltac interval_case_l lo hi :=
+  let H := fresh in
+  destruct (interval_destruct_l lo hi) as [[H ->]|[H ->]]; revert H.
+Ltac interval_case_r lo hi :=
+  let H := fresh in
+  destruct (interval_destruct_r lo hi) as [[H ->]|[H ->]]; revert H.
+
+Ltac downto :=
+  unfold downto; rewrite ?LibInt.le_zarith, ?LibInt.lt_zarith; try lia.
+Ltac upto :=
+  unfold upto; rewrite ?LibInt.le_zarith, ?LibInt.lt_zarith; try lia.
+
+Lemma interval_app : forall lo mid hi,
+  lo <= mid ->
+  mid <= hi ->
+  interval lo mid ++ interval mid hi = interval lo hi.
+Proof.
+  intros lo mid. induction_wf: (upto mid) lo. intros.
+  interval_case_l lo mid.
+  { intros. rewrite List.app_nil_l. assert (mid = lo) as -> by lia. auto. }
+  { intros. rewrite <-List.app_comm_cons, IH; auto; try lia; try upto.
+    rewrite~ <-interval_cons_l. lia. }
+Qed.
 
 Lemma in_interval_lo :
   forall x lo hi,
   List.In x (interval lo hi) ->
   lo <= x.
-Proof. admit. Admitted.
+Proof.
+  intros *. induction_wf: (downto lo) hi.
+  interval_case_r lo hi.
+  { cbn. tauto. }
+  { rewrite List.in_app_iff. cbn. intros ? [?|[?|?]]; try tauto.
+    { applys~ IH (hi - 1). downto. } { lia. } }
+Qed.
 
 Lemma in_interval_hi :
   forall x lo hi,
   List.In x (interval lo hi) ->
   x < hi.
-Proof. admit. Admitted.
+Proof.
+  intros *. induction_wf: (upto hi) lo.
+  interval_case_l lo hi.
+  { cbn. tauto. }
+  { cbn. intros ? [?|?]. lia. applys~ IH (lo + 1). upto. }
+Qed.
 
 Lemma big_const_Z :
   forall lo hi c,
+  lo <= hi ->
   \big[Z.add]_(_ <- interval lo hi) c = (hi - lo) * c.
-Proof. admit. (* TODO *) Admitted.
+Proof.
+  intros *. induction_wf: (upto hi) lo.
+  interval_case_l lo hi.
+  { cbn. nia. }
+  { cbn. unfold Big.big in IH. cbn in IH. intros.
+    rewrite IH. nia. upto. lia. }
+Qed.
+
+Lemma big_zero_Z :
+  forall lo hi,
+  \big[Z.add]_(_ <- interval lo hi) 0 = 0.
+Proof.
+  intros *. induction_wf: (upto hi) lo.
+  interval_case_l lo hi.
+  { cbn. nia. }
+  { cbn. unfold Big.big in IH. cbn in IH. intros. rewrite~ IH. upto. }
+Qed.
 
 Lemma big_nonneg_Z :
   forall lo hi (f : Z -> Z),
@@ -711,10 +866,8 @@ Proof.
     (R := Z.le)
     (f := fun _ => 0);
   try typeclass.
-  { rewrite big_const_Z. nia. }
-  { introv HIn.
-    forwards~: in_interval_lo HIn.
-    forwards~: in_interval_hi HIn. }
+  { rewrite big_zero_Z. lia. }
+  { introv HIn. forwards~: in_interval_lo HIn. forwards~: in_interval_hi HIn. }
 Qed.
 
 Definition cumul (lo hi : Z) (f : Z -> Z) : Z :=
@@ -725,29 +878,61 @@ Lemma cumulP :
   cumul lo hi f = \big[Z.add]_(i <- interval lo hi) f i.
 Proof. reflexivity. Qed.
 
-Lemma cumul_split (k : Z) :
-  forall lo hi (f : Z -> Z),
-  Z.le lo k ->
-  Z.le k hi ->
+Lemma cumul_const : forall lo hi c,
+  lo <= hi ->
+  cumul lo hi (fun _ => c) = (hi - lo) * c.
+Proof. apply big_const_Z. Qed.
+
+Lemma cumul_const' : forall lo hi c,
+  cumul lo hi (fun _ => c) = (Z.max 0 (hi - lo)) * c.
+Proof.
+  intros. tests~: (lo <= hi). rewrite~ cumul_const; nia.
+  unfold cumul; rewrite~ interval_empty; cbn. nia. lia.
+Qed.
+
+Lemma cumul_nonneg : forall lo hi (f: Z -> Z),
+  (forall x, lo <= x -> x < hi -> 0 <= f x) ->
+  0 <= cumul lo hi f.
+Proof.
+  intros. rewrite cumulP, <-big_nonneg_Z; auto with zarith.
+Qed.
+
+Lemma cumul_split (k : Z) : forall lo hi (f : Z -> Z),
+  lo <= k ->
+  k <= hi ->
   cumul lo hi f = cumul lo k f + cumul k hi f.
-Proof. admit. (* TODO *) Admitted.
+Proof.
+  intros. unfold cumul.
+  rewrite~ <-(@interval_app lo k hi). rewrite List.map_app, big_app.
+  auto. typeclass.
+Qed.
 
 Arguments cumul_split k [lo] [hi] f _ _.
 
-Lemma cumul_ge_single_term (k : Z) :
-  forall lo hi (f : Z -> Z),
-  Z.le lo k ->
-  Z.le k hi ->
-  f k <= cumul lo hi f.
-Proof. admit. (* TODO *) Admitted.
+Lemma cumul_minus_one : forall f lo hi,
+  lo <= hi ->
+  cumul lo hi f = (hi - lo) + cumul lo hi (fun x => f x - 1).
+Proof.
+  intros *. induction_wf: (upto hi) lo.
+  unfold cumul. interval_case_l lo hi.
+  { intros. cbn. lia. }
+  { intros. cbn. unfold cumul, Big.big in IH. rewrite IH.
+    2: upto. 2: lia. cbn. lia. }
+Qed.
 
-Arguments cumul_ge_single_term k [lo] [hi] f _ _ _.
+Lemma cumul_cons_l : forall lo hi (f : Z -> Z),
+  lo < hi ->
+  cumul lo hi f = f lo + cumul (lo + 1) hi f.
+Proof. intros. unfold cumul. rewrite~ interval_cons_l. Qed.
 
-Lemma big_op_compat :
-  forall (A : Type) op `{Unit A op, Commutative A op, Associative A op} f1 f2 (xs : list A),
-  \big[op]_(x <- xs) (op (f1 x) (f2 x)) =
-  op (\big[op]_(x <- xs) (f1 x)) (\big[op]_(x <- xs) (f2 x)).
-Proof. admit. Admitted.
+Lemma cumul_cons_r : forall lo hi (f : Z -> Z),
+  lo < hi ->
+  cumul lo hi f = cumul lo (hi - 1) f + f (hi - 1).
+Proof.
+  intros. unfold cumul. rewrite~ interval_cons_r.
+  rewrite~ List.map_app. cbn. rewrite big_app. cbn.
+  rewrite Z.add_0_r. reflexivity. typeclass.
+Qed.
 
 Lemma pack_forall_pair_eq :
   forall (A B C : Type) (P Q : A * B -> C),
@@ -853,7 +1038,7 @@ Proof.
   exists (c * (N - lo + 1)). rewrite productP.
   revert Uf_nonneg Ug_nonneg UP1; filter_intersect; intro UP1'.
 
-  eexists. exists (fun n => Z.le N n). splits.
+  eexists. exists (fun n => N + 1 <= n). splits.
   { apply UP1'. }
   { apply ultimately_ge_Z. }
   intros a n (f_nonneg & g_nonneg & P1_a) N_le_n.
@@ -865,8 +1050,8 @@ Proof.
   (* Product filter dance done. *)
 
   (* Eliminate [Z.abs] in the goal, as [f] and [g] are nonnegative. *)
-  rewrite Z.abs_eq; [| apply big_nonneg_Z; eauto].
-  rewrite Z.abs_eq; [| apply big_nonneg_Z; eauto].
+  rewrite Z.abs_eq; [| apply cumul_nonneg; eauto].
+  rewrite Z.abs_eq; [| apply cumul_nonneg; eauto].
 
   (* Eliminate [Z.abs] in H', for the same reason. *)
   assert (Hfg : (forall x, N <= x -> f a x <= c * g a x)). {
@@ -905,7 +1090,7 @@ Proof.
     forwards x_le_N: Z.lt_le_incl x_lt_N.
     apply f_mon. unfold le_after. lia. }
 
-  rewrite big_const_Z.
+  rewrite~ big_const_Z.
   rewrite Hfg by omega.
 
   asserts_rewrite
@@ -931,15 +1116,15 @@ Proof.
   asserts_rewrite <-(0 <= c * (N - lo + 1) * cumul lo N (g a)). {
     apply Z.mul_nonneg_nonneg.
     { nia. }
-    { apply big_nonneg_Z. intros.
-      apply g_nonneg. lia. }
+    { apply cumul_nonneg. intros. apply g_nonneg. lia. }
   }
   rewrite Zplus_0_l.
   rewrite Z.mul_assoc with (m := c).
   rewrite Z.mul_comm with (m := c).
 
   apply Zmult_le_compat_l.
-  - apply cumul_ge_single_term; omega.
+  - rewrite~ cumul_cons_l. 2: lia. rewrite <-cumul_nonneg. lia.
+    intros. apply~ g_nonneg. lia.
   - nia.
 Qed.
 
@@ -1022,7 +1207,7 @@ Proof.
   { apply U_f_nonneg. }
   { apply (filter_conj_alt (ultimately_ge_Z 1) (ultimately_ge_Z (lo + 1))). }
   { intros a n f_nonneg [one_le_n lo_le_n].
-    rewrite Z.abs_eq; [| apply big_nonneg_Z; eauto].
+    rewrite Z.abs_eq; [| apply cumul_nonneg; eauto].
     rewrite Z.abs_eq; [| eauto with zarith].
     rewrite cumulP.
     rewrite big_covariant with
@@ -1031,7 +1216,7 @@ Proof.
     { intros x I. apply f_mon. unfold le_after.
       forwards~: in_interval_lo I. forwards~: in_interval_hi I. lia. }
 
-    rewrite big_const_Z.
+    rewrite big_const_Z. 2: lia.
     assert (f_le: f a (n - 1) <= f a n)
       by (apply f_mon; unfold le_after; lia).
     rewrite f_le; [| lia].
@@ -1097,26 +1282,20 @@ Proof.
   assert (lo_le_N : lo <= N) by (apply HN; omega).
 
   assert (cumul_f'_ge_n : forall n, N <= n -> n - N <= cumul N n f'). {
-    assert (
-      cumul_minus_one : forall f lo x,
-        cumul lo x f = (x - lo) + cumul lo x (fun x => f x - 1)
-    ).
-    { admit. }
-
     assert (cumul_minus_ge_0 :
       forall n, 0 <= cumul N n (fun x => f' x - 1)
     ).
-    { intros. unfold cumul. apply big_nonneg_Z.
+    { intros. apply cumul_nonneg.
       intros x ? ?. forwards~ (? & ? & ?): HN x ___.
       omega. }
 
     intros x H.
-    rewrite cumul_minus_one.
+    rewrite~ cumul_minus_one.
     rewrite <-cumul_minus_ge_0. omega.
   }
 
   assert (cumul_past_N_ge_0 : forall n, 0 <= cumul N n f).
-  { intros. unfold cumul. apply big_nonneg_Z.
+  { intros. apply cumul_nonneg.
     intros x ? ?. forwards~ (? & ? & ?) : HN x ___.
     omega. }
 
@@ -1146,7 +1325,7 @@ Proof.
   math_apply (forall a b c d, a - b + d <= c -> a <= b + (c - d)).
   rewrite <-n0_le_n. big.
   close.
-Admitted.
+Qed.
 
 (* We could deduce a [dominated_big_sum] lemma for the one parameter case from
    [Product.dominated_big_sum], by instantiating [A] by [unit].
@@ -1192,10 +1371,10 @@ Proof.
   assert (f_g_nonneg : forall n, N <= n -> 0 <= f n /\ 0 <= g n).
   { intros. splits; apply Z.lt_le_incl; applys~ HN. }
   assert (cumul_f'_nonneg : forall n, 0 <= cumul lo n f').
-  { intros. subst f'. apply big_nonneg_Z. intros.
+  { intros. subst f'. apply cumul_nonneg. intros.
     cases_if~; [| apply f_g_nonneg]; auto with zarith. }
   assert (cumul_g'_nonneg : forall n1 n2, lo <= n1 -> 0 <= cumul n1 n2 g').
-  { intros. subst g'. apply big_nonneg_Z. intros.
+  { intros. subst g'. apply cumul_nonneg. intros.
     cases_if~; [| apply f_g_nonneg]; auto with zarith. }
 
   (* Eliminate [Z.abs] in the goal and HN, as [f] and [g] are nonnegative. *)
@@ -1220,7 +1399,7 @@ Proof.
     try typeclass; cycle 1.
   { introv I. forwards: in_interval_lo I. forwards: in_interval_hi I.
     subst f'; simpl. cases_if~. omega. }
-  rewrite big_const_Z. ring_simplify.
+  rewrite~ big_const_Z. ring_simplify.
 
   rewrite (cumul_split N) with (f := g') by omega.
   rewrite Z.mul_add_distr_l.
@@ -1229,7 +1408,7 @@ Proof.
     try typeclass; cycle 1.
   { introv I. forwards: in_interval_lo I. forwards: in_interval_hi I.
     subst g'; simpl. cases_if~. omega. }
-  rewrite big_const_Z. ring_simplify.
+  rewrite~ big_const_Z. ring_simplify.
 
   rewrite cumulP with (f := f').
   rewrite big_covariant with (R := Z.le) (g := (fun i => c * g' i));
@@ -1360,8 +1539,7 @@ Proof.
   intros. exists_big k Z.
   generalize (ultimately_ge_Z 1) (ultimately_ge_Z lo); filter_closed_under_intersection.
   intros x (one_le_x & lo_le_x).
-  rewrite cumulP. rewrite big_const_Z.
-  rewrite Z.mul_sub_distr_r.
+  rewrite~ cumul_const. rewrite Z.mul_sub_distr_r.
   cut (Z.abs c + Z.abs (lo * c) <= k). { generalize k; clear k. intros. nia. }
   big. close.
 Qed.
@@ -1404,6 +1582,7 @@ Hint Resolve dominated_shift : dominated.
 Hint Resolve dominated_pow_r_cst_l : dominated.
 Hint Resolve dominated_pow_r_cst_r : dominated.
 Hint Resolve dominated_pow_l : dominated.
+Hint Resolve dominated_cst_pow : dominated.
 Hint Resolve dominated_log : dominated.
 
 Hint Extern 100 => try (intros; omega) : dominated_sidegoals.
@@ -1414,10 +1593,10 @@ Hint Extern 999 (dominated _ _ _) => shelve : dominated_fallback.
 
 Ltac dominated_setup :=
   try match goal with |- dominated ?A (fun x => ?f) ?g =>
-    change (dominated A (fun x : Filter.sort A => f) g)
+    refine (_ : dominated A (fun x : Filter.sort A => _) _)
   end;
   try match goal with |- dominated ?A ?f (fun x => ?g) =>
-    change (dominated A f (fun x : Filter.sort A => g))
+    refine (_ : dominated A _ (fun x : Filter.sort A => _))
   end.
 
 Ltac dominated :=

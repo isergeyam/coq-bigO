@@ -32,3 +32,7 @@ let g3_1 n = f3 0 n
 let g3_2 m = f3 m 0
 
 (*---------------*)
+
+let append_g (a1: int array) (a2: int array) =
+  let _ = Array.append a1 a2 in
+  g (Array.length a1, Array.length a2)

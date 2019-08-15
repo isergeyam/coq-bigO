@@ -318,6 +318,8 @@ Proof. auto. Qed.
 
 Arguments le_than : clear implicits.
 
+(******************************************************************************)
+
 (* [let2]: of the form [let m = ... in ...], where the cost of the body depends
    on [m].
 
@@ -345,7 +347,8 @@ Proof.
       apply cost_monotonic. math. }
     cleanup_cost. monotonic. dominated. }
 
-  { (* or use the fancy/half broken piggybank tactics *)
+  dup.
+  { (* or use the fancy piggybank tactics *)
     xspecO_refine straight_line. intros n N.
     xcf. xpay. xlet. { xapp~. }
     { xpull. intro Hm. (* no weaken *) xapp. math.
@@ -353,7 +356,15 @@ Proof.
       piggybank: *. transitivity (cost loop1_spec n). now apply cost_monotonic.
       piggybank: * done. }
     cleanup_cost. monotonic. dominated. }
-Qed.
+
+  (* or accumulate negative credits *)
+  { xspecO_refine recursive. intros. xcf. xpay. credr2l. xok.
+    xlet. xapp. math. credr2l. xok.
+    xpull. intros. xapp. math. credr2l.
+    rewrite !credits_join_eq. hsimpl. rewrite le_zarith.
+    admit. admit. }
+
+Abort.
 
 (* [loop2]: Similarly, we can have a for-loop where the value of the starting
    and finishing indices is not precisely known, but one can bound their
@@ -385,12 +396,11 @@ Proof.
   { hsimpl. }
   { (* At this point, we can simply reduce [cumul] of a constant to a product.
     *)
-    rewrite cumulP. rewrite big_const_Z.
+    rewrite cumul_const'.
     (* Do some cleanup, and work around the fact that [ring_simplify] chokes on
     evars... *)
     hide_evars_then ltac:(fun _ => ring_simplify).
-    apply (le_than (2 * n)).
-    math. }
+    apply (le_than (2 * n)). math_lia. }
 
   cleanup_cost.
 
@@ -909,6 +919,65 @@ Proof.
   end defer. elia.
 Qed.
 
+Lemma rec1_spec7 :
+  specZ [cost \in_O (fun n => n)]
+    (forall n, 0 <= n ->
+      app rec1 [n]
+        PRE (\$ cost n)
+        POST (fun (tt:unit) => \[])).
+Proof.
+  xspecO_refine recursive. intros costf ? ? ?.
+  intro n. induction_wf: (wf_downto 0) n. intro N.
+
+  xcf. weaken. xpay.
+  (* what if we use xif instead of xif_guard *)
+  xif. xrets. xapp; math. generalize n N. defer.
+
+  close_cost.
+  begin defer assuming a b. exists (fun n => a*n+b). split.
+  intros. cancel n. case_max; auto with zarith; defer. case_max; try pols; defer.
+  cleanup_cost.
+  deferred; intros; monotonic.
+  dominated.
+  end defer. elia.
+  (* works because of the n>=0 precondition *)
+Qed.
+
+Require Import ssreflect.
+
+Lemma rec1_spec8 :
+  specZ [cost \in_O (fun n => n)]
+    (forall n,
+      app rec1 [n]
+        PRE (\$ cost n)
+        POST (fun (tt:unit) => \[])).
+Proof.
+  xspecO_refine recursive. intros costf ? ? ?.
+  intro n. induction_wf: (wf_downto 0) n.
+
+  xcf. weaken. xpay.
+  xif_guard. xrets. xapp; math. generalize n. defer.
+
+  close_cost.
+  begin defer assuming a b. exists (fun n => Z.max 1 (a*n+b)).
+  defer Ha: (1 <= a).
+  split.
+  intros.
+  tests: (n <= 0).
+  { case_if; [| math].
+    match goal with |- context [Z.max ?n ?m] =>
+      destruct (Z.max_spec_le n m) as [(? & ->) | (? & ->)]
+    end; math. }
+  { case_if. math.
+    assert (1 <= n). math.
+    rewrite [X in _ <= X]Z.max_r. cancel n; try math. defer.
+    rewrite [in a*n+b](_: n = (n-1)+1). math. rewrite Z.mul_add_distr_l Z.mul_1_r.
+    cancel (n-1); try math_lia. case_max; try math; defer. }
+  cleanup_cost.
+  deferred; monotonic.
+  dominated.
+  end defer. elia.
+Qed.
 
 Parameter tree : Type.
 Parameter size : tree -> Z.
@@ -992,10 +1061,10 @@ Proof.
     filter_closed_under_intersection. eauto. }
 
   apply dominated_ultimately_le.
-  rewrite withinP, invimageP. eexists (fun _ => True).
+  rewrite withinP invimageP. eexists (fun _ => True).
   split; auto using filter_universe. intros.
-  rewrite Z.abs_eq; [| apply height_nonneg].
-  rewrite Z.abs_eq; [| apply Z.log2_nonneg].
+  rewrite Z.abs_eq. apply height_nonneg.
+  rewrite Z.abs_eq. apply Z.log2_nonneg.
   apply~ tree_height_bound.
 Qed.
 
@@ -1049,42 +1118,11 @@ Proof.
     intros ? H. rewrite withinP. revert H. filter_closed_under_intersection. auto. }
   cbn.
   apply dominated_ultimately_le.
-  rewrite withinP, invimageP. eexists (fun _ => True).
+  rewrite withinP invimageP. eexists (fun _ => True).
   split; auto using filter_universe. intros.
-  rewrite Z.abs_eq; [| apply height_nonneg].
-  rewrite Z.abs_eq; [| apply Z.log2_nonneg].
+  rewrite Z.abs_eq. apply height_nonneg.
+  rewrite Z.abs_eq. apply Z.log2_nonneg.
   apply~ tree_height_bound.
-Qed.
-
-(**********)
-
-Parameter array_append : func.
-
-Notation "'len'" := (LibListZ.length).
-
-Definition array_append_sum :=
-  specZ [cost \in_O (fun n => n)]
-    (forall (A: Type) (a1 a2: list A),
-       app array_append [a1 a2]
-         PRE (\$ cost (len a1 + len a2))
-         POST (fun (_:list A) => \[])).
-
-Definition array_append_2 :=
-  specO
-    (product_filterType Z_filterType Z_filterType) ZZle
-    (fun cost => forall (A: Type) (a1 a2: list A),
-      app array_append [a1 a2]
-        PRE (\$ cost (len a1, len a2))
-        POST (fun (_:list A) => \[]))
-    (fun '(m, n) => m + n).
-
-Goal array_append_sum -> array_append_2.
-  unfold array_append_sum, array_append_2. intro S.
-  xspecO (fun '(m, n) => cost S (m + n)).
-  { intros. xapply~ S. }
-  { intros [m n] [m' n'] [? ?]. apply (cost_monotonic S). math. }
-  { eapply dominated_comp_eq with (f:=cost S) (p:=(fun '(m,n)=>m+n)).
-    now eapply cost_dominated. now limit. all: now intros [? ?]; eauto. }
 Qed.
 
 (**********)
@@ -1121,4 +1159,53 @@ Goal
   { eapply dominated_comp_eq with (f:=cost S) (p:=g).
     now eapply cost_dominated. now limit.
     all: intros [? ?]; eauto. }
+Qed.
+
+(***********)
+
+Local Ltac auto_tilde ::= eauto with maths; try math.
+
+Lemma walk_spec_explicit : forall a i (A: list int),
+  0 <= i < length A ->
+  app walk [a i]
+    PRE (a ~> Array A)
+    POST (fun (j:int) => a ~> Array A \* \$ (i - j) \* \[ i < j <= length A ]).
+Proof.
+  introv. set n := length A.
+  induction_wf IH: (wf_upto n) i.
+  intros Hi. xcf.
+  xpay. credr2l. apply pred_incl_refl.
+  xapps. apply~ int_index_prove.
+  xrets. xlet.
+  xpost (fun (b:bool) =>
+    a ~> Array A \* \$ (-1) \*
+    \[b = isTrue (A[i] <> 0 /\ i < n - 1)]).
+  { xif. xapps. xrets. math. xrets. rew_logic. tauto. }
+  xpulls. xif.
+  { xapps~. hsimpl_credits. 2: math. ring_simplify. (* tight *) math. }
+  { xrets. hsimpl_credits. ring_simplify. (* tight *) math. math. }
+Qed.
+
+Hint Extern 1 (RegisterSpec walk) => Provide walk_spec_explicit.
+
+Lemma full_walk_explicit : forall a (A: list int),
+  app full_walk [a]
+    PRE (\$ (2 * length A + 1) \* a ~> Array A)
+    POST (fun (_:unit) => a ~> Array A).
+Proof.
+  intros. set n := length A.
+  xcf. xpay. rewrite credits_split_eq. hsimpl.
+  xapps. set j0 := 0.
+  xwhile_inv_basic_measure (fun (b:bool) (m:int) =>
+    Hexists jk,
+    a ~> Array A \* j ~~> jk \* \$ (2 * (n - jk)) \*
+    \[ m = n - jk /\ 0 <= jk <= n /\ b = isTrue (jk < n) ]).
+  { hsimpl (isTrue (j0 < n)) (n-j0). hsimpl_credits; math. splits~. }
+  { (* condition *)
+    intros b m. xpull;=> jk [-> [? ->]]. xapps. xapps. xrets. splits~. }
+  { intros. xpull; => jk [-> [? Hjk]]. rewrite true_eq_isTrue_eq in Hjk.
+    xapps. xapp~ as jk'; => H'. xapps. intros _.
+    hsimpl (isTrue (jk' < n)) (n-jk').
+    { hsimpl_credits. math. } all: splits~. }
+  hsimpl_credits. math.
 Qed.

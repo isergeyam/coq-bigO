@@ -26,30 +26,22 @@ Lemma f_spec :
        PRE (\$ cost n)
        POST (fun (_:unit) => \[])).
 Proof.
-  xspecO_refine straight_line. intros n N. xcf. xpay.
-  weaken. xfor_inv (fun (_:int) => \[]). math.
-  { intros i Hi. xpay.
-    weaken. xfor_inv (fun (_:int) => \[]). math.
-    intros j Hj. xpay. xret. hsimpl. hsimpl. hsimpl.
-    { simpl. rewrite Z.add_0_r. reflexivity. } }
+  xspecO_refine straight_line. intros n N. xcf.
+  xpay. xfor_inv (fun (_:int) => \[]). math.
+  { intros i Hi.
+    xpay. xfor_inv (fun (_:int) => \[]). math.
+    intros j Hj. xpay. xret~. hsimpl. hsimpl. }
   hsimpl. hsimpl.
-  { simpl.
-    assert (L: forall f g a b, f = g -> cumul a b f = cumul a b g) by admit. (* FIXME *)
-    erewrite L; swap 1 2. extens. intro i.
-    reflexivity. reflexivity. }
 
   cleanup_cost.
   { eapply monotonic_sum; [| now monotonic]. eapply monotonic_cumul_Z.
-    intros. admit. (* TODO *) }
-
+    intros. rewrite~ <-cumul_nonneg. }
   dominated.
   rewrite dominated_big_sum_bound.
-  { eapply dominated_eq_r; swap 1 2.
-    { intros a. rewrite (Z.pow_2_r a). reflexivity. }
-    dominated.
+  2: now repeat ultimately_greater.
+  { setoid_rewrite Z.pow_2_r. dominated.
     rewrite dominated_big_sum_bound. dominated. ultimately_greater.
     apply~ filter_universe_alt. monotonic. }
-  repeat ultimately_greater.
-  apply filter_universe_alt.
-  intro. apply monotonic_after_of_monotonic. monotonic.
-Admitted.
+  { apply filter_universe_alt.
+    eauto using monotonic_after_of_monotonic with monotonic zarith. }
+Qed.

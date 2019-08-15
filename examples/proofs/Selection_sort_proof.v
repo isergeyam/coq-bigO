@@ -40,16 +40,36 @@ Hint Extern 1 (RegisterSpec swap) => Provide (provide_specO swap_spec).
 
 Ltac auto_tilde ::= try solve [ eauto with maths | false; math ].
 
+(* cumul a b (λi. f (b-i))
+   = f(b-a) + f(b-(a+1)) + ... + f(b-(b-1))
+   = f(b-a) + f(b-(a+1)) + ... + f(1)
+   = cumul 1 (b-a+1) (λi. f i)
+*)
+Lemma cumul_triangle_renumber : forall lo hi f g,
+  (forall i, lo <= i -> i < hi -> g i = f (hi - i)) ->
+  cumul lo hi g = cumul 1 (hi-lo+1) f.
+Proof.
+  intros *. induction_wf: (upto hi) lo. intros Hg.
+  unfold cumul. interval_case_l lo hi.
+  { intros. cbn. rewrite~ interval_empty. }
+  { intros. cbn.
+    rewrite~ (@interval_cons_r 1 (hi - lo + 1)).
+    rewrite List.map_app, Big.big_app. 2: typeclass. cbn.
+    unfold cumul, Big.big in IH. rewrite IH. 2: upto. 2: intros; applys~ Hg.
+    cbn. rewrite~ Hg.
+    ring_simplify (hi - (lo + 1) + 1) (hi - lo + 1 - 1). unfold Big.big. cbn.
+    math. }
+Qed.
+
 Lemma selection_sort_spec :
   specZ [cost \in_O (fun n => n ^ 2)]
     (forall a (xs : list int),
+      1 <= length xs -> (* TODO: generalize the for-loop reasoning rule *)
       app selection_sort [a]
       PRE (\$ cost (length xs) \* a ~> Array xs)
       POST (fun (_:unit) => Hexists (xs' : list int), a ~> Array xs')).
 Proof.
-  xspecO_refine straight_line. xcf. xpay.
-  xapps~.
-  assert (1 <= length xs) by admit. (* fix the for-loop reasoning rule *)
+  xspecO_refine straight_line. xcf. xpay. xapps~.
   weaken. xfor_inv (fun (_:int) =>
     Hexists (xs':list int), a ~> Array xs' \* \[ length xs = length xs']
   ).
@@ -69,53 +89,27 @@ Proof.
       hsimpl. splits~. apply~ int_index_prove.
 
       match goal with |- cumul _ _ (fun _ => ?X) <= _ => ring_simplify X end.
-      asserts_rewrite (Z.max 0 0 = 0). reflexivity. (* FIXME? *)
-      (* reflexivity. *)
-      rewrite cumulP; rewrite big_const_Z.
-        transitivity (3 * (length xs - i - 1)). math. reflexivity.
-    }
+      rewrite Z.max_l, Z.add_0_l; autos~. reflexivity. }
 
     xpull. intros xs'' k (? & ?). xapps. xapps~. apply~ int_index_prove.
     hsimpl. rewrite !LibListZ.length_update; auto.
   }
   hsimpl~. hsimpl.
+  sets len_xs: (length xs). rewrite Z.add_0_l. reflexivity.
 
-  sets len_xs: (length xs).
-  assert (L: forall f g a b, f = g -> cumul a b f = cumul a b g) by admit.
-  erewrite L; swap 1 2. extens. intro i.
-  hide_evars_then ltac:(fun _ => ring_simplify).
-  asserts_rewrite~ (3 * len_xs - 3 * i = 3 * (len_xs - i)).
-  reflexivity.
-  ring_simplify ((len_xs - 2) + 1). reflexivity.
+  eapply cleanup_cost_tagged, cleanup_cost_eq.
+  { intro x. unfold costf.
+    rewrite cumul_triangle_renumber
+      with (lo := 0) (f := fun i => 3 * i + cost swap_spec tt + 1); auto; cycle 1.
+    { intros. rewrite~ cumul_const. }
+    ring_simplify (x - 2 + 1 - 0 + 1). reflexivity. }
 
   cleanup_cost.
-  monotonic. admit. (* todo *)
-  dominated.
-
-  (* cumul a b (λi. f (b-i))
-     = f(b-a) + f(b-(a+1)) + ... + f(b-(b-1))
-     = f(b-a) + f(b-(a+1)) + ... + f(1)
-     = cumul 1 (b-a-1) (λi. f i)
-  *)
-  assert (LL: forall a b f g,
-             (forall i, g i = f (b - i)) ->
-             cumul a b g = cumul 1 (b-a-1) f) by admit.
-  apply dominated_eq_l with (fun (x:Z_filterType) => cumul 1 (x-2) (fun i => 3 * i + cost swap_spec tt + 1)); swap 1 2.
-  { intro x.
-    rewrite LL with (a := 0) (f := fun i => 3 * i + cost swap_spec tt + 1); auto.
-    ring_simplify (((x-1) - 0) - 1). auto.
-    intro. ring_simplify. reflexivity. (* fixme *)
-  }
-
-  etransitivity. eapply dominated_big_sum_bound'; swap 1 3.
-  { apply_nary dominated_sum_distr_nary.
-    apply_nary dominated_sum_distr_nary.
-    dominated. apply dominated_reflexive.
-    simpl. dominated.
-    simpl. dominated. }
-
-  { ultimately_greater. } { ultimately_greater. }
-  { monotonic. intros ? ? H. destruct~ H. }
-  { apply limit_sum_cst_r. limit. }
-  { apply dominated_mul. dominated. dominated. }
-Admitted.
+  { monotonic. }
+  { dominated.
+    etransitivity. eapply dominated_big_sum_bound'; swap 1 3.
+    { repeat apply_nary dominated_sum_distr_nary; dominated.
+      apply dominated_reflexive. all: cbn; dominated. }
+    1, 2: now ultimately_greater.
+    { monotonic. intros ? ? H. destruct~ H. } now limit. now cbn; dominated.
+Qed.

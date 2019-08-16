@@ -8,14 +8,12 @@ Require Import Procrastination.Procrastination.
 Require Import Generic DominatedNary LimitNary.
 Require Import UltimatelyGreater.
 
-Close Scope Int_scope.
-Bind Scope Z_scope with Z.
 Open Scope Z_scope.
-Undelimit Scope Int_scope.
+Open Scope liblist_scope.
 
 Notation "'int'" := Z.
 
-Module BinaryRandomAccessListSpec (* <: RandomAccessListSigSpec *).
+Module BinaryRandomAccessListSpec.
 
 Import BinaryRandomAccessList_ml.
 
@@ -30,9 +28,9 @@ Inductive btree : int -> tree_ a -> list a -> Prop :=
   | btree_cons : forall p p' n t1 t2 L1 L2 L',
       btree p t1 L1 ->
       btree p t2 L2 ->
-      p' =' p+1 ->
-      n =' 2^p' ->
-      L' =' L1 ++ L2 ->
+      p' = p+1 ->
+      n = 2^p' ->
+      L' = L1 ++ L2 ->
       btree p' (Node n t1 t2) L'.
 
 Inductive inv : int -> rlist_ a -> list a -> Prop :=
@@ -100,7 +98,7 @@ Lemma btree_length_correct : forall a t p L,
   @btree a p t L -> length L = 2^p.
 Proof.
   introv Rt. induction Rt. auto.
-  unfolds eq'. subst. rew_list. rewrite~ pow2_succ.
+  subst. rew_list. rewrite~ pow2_succ.
 Qed.
 
 Lemma btree_size_length : forall a t p L,

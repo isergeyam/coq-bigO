@@ -5,10 +5,15 @@ Require Import Dominated.
 Require Import Monotonic.
 Require Import CFMLBigO.
 
+(* Ideally, we should link this file to the UF Coq development of Charguéraud &
+   Pottier. For the moment, since this is a small demo example, we instead
+   axiomatize part of their toplevel definitions and theorems. *)
+
+Section UF.
+
 Parameter (elem data : Type).
 
 Implicit Types x : elem.
-
 Implicit Types D : set elem.
 Implicit Types R : elem -> elem.
 Implicit Types V : elem -> data.
@@ -37,6 +42,7 @@ Parameter find_spec : forall D R V x, x \in D ->
     PRE  (UF D R V \* \$(2 * alpha (card D) + 4))
     POST (fun y => UF D R V \* \[ R x = y ]).
 
+
 Theorem find_specO :
   specO Z_filterType Z.le
     (fun cost =>
@@ -50,3 +56,5 @@ Proof using.
   (* workaround *) sets cD: (card D). hsimpl; piggybank: *rhs. hsimpl~.
   cleanup_cost. monotonic. dominated.
 Qed.
+
+End UF.

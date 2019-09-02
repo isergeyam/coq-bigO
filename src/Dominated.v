@@ -170,6 +170,14 @@ Proof.
   exists 1. apply filter_universe_alt. eauto with zarith.
 Qed.
 
+Lemma dominated_le_nonneg A f g :
+  (forall x, 0 <= f x <= g x) ->
+  dominated A f g.
+Proof.
+  intros H. exists 1. apply filter_universe_alt. intros a.
+  specialize (H a). nia.
+Qed.
+
 (* Asymptotic pointwise inequality implies domination. *)
 
 Lemma dominated_ultimately_le A f g :

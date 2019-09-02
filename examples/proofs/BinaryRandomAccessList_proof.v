@@ -257,14 +257,6 @@ Qed.
 
 (** Verification *)
 
-(* Lemma pow2_succ_div : forall p, p >= 0 -> 2 ^ (p+1) ÷ 2 = 2 ^ p. *)
-(* Proof. *)
-(*   intros. rewrite~ pow2_succ. rewrites~ Z.mul_comm. rewrites~ Z.quot_mul. *)
-(* Qed. *)
-
-(* Lemma simpl_zero_credits : forall n, n = 0 -> \$ n ==> \[]. *)
-(* Proof. intros. subst. rewrite <-credits_int_zero_eq. hsimpl. Qed. *)
-
 Lemma empty_spec :
   forall a, Rlist (@empty a) (@nil a).
 Proof. intros. rewrite (empty__cf a). constructors~. Qed.
@@ -367,8 +359,8 @@ Proof.
       { xret. hsimpl. constructors~. }
       { xapps~. intros. xapps~. intros.
         xret. hsimpl. constructors~. rew_list~. }
-
-      rew_list. rew_cost. cancel (length ts). all: case_max; defer. }
+      rew_list. rew_cost. cancel (length ts).
+      all: case_max; auto with zarith; defer. }
 
   { assert (0 <= a) by (deferred; math_lia). monotonic. }
   { dominated. }
@@ -585,6 +577,35 @@ Qed.
 
 Hint Resolve limit_positive_0 : limit.
 
+(* XX *)
+Ltac fold_product :=
+  rewrite_strat (subterms (fold (product_filterType positive_filterType Z_filterType))).
+
+Lemma dominated_positive_order_x_x_plus_y :
+  dominated product_positive_order
+    (fun '(x, y) => x) (fun '(x,y) => x + y).
+Proof.
+  apply_nary dominated_sum_r_nonneg_1_nary; fold_product.
+  { (* ultimately_greater FIXME *)
+    apply ultimately_lift1. rewrite~ positiveP. }
+  { apply ultimately_lift2. ultimately_greater. }
+  dominated.
+Qed.
+
+Hint Resolve dominated_positive_order_x_x_plus_y.
+
+Lemma dominated_positive_order_y_x_plus_y :
+  dominated product_positive_order
+    (fun '(x, y) => y) (fun '(x,y) => x + y).
+Proof.
+  apply_nary dominated_sum_r_nonneg_2_nary; fold_product.
+  { apply ultimately_lift1. rewrite~ positiveP. }
+  { apply ultimately_lift2. ultimately_greater. }
+  reflexivity.
+Qed.
+
+Hint Resolve dominated_positive_order_y_x_plus_y.
+
 (* HACK HACK HACK
 
    - Partly because of https://github.com/coq/coq/issues/6805 which introduces
@@ -598,10 +619,6 @@ Hint Resolve limit_positive_0 : limit.
 Ltac math_0 ::=
   repeat (match goal with x := Morphisms.do_subrelation : _ |- _ => clear x end);
   xclean.
-
-(* XX *)
-Ltac fold_product :=
-  rewrite_strat (subterms (fold (product_filterType positive_filterType Z_filterType))).
 
 (* - est-ce qu'on sait prouver cette spec directement ? il semblerait que non *)
 (* - est-ce que cette spec découle de la spec avec filtre produit ? oui! *)
@@ -721,29 +738,13 @@ Proof.
     forwards~ M: cost_monotonic lookup_tree_spec (m + n) (m' + n').
     rewrite~ M. auto with zarith. }
 
-  apply_nary dominated_sum_distr_nary.
-  { apply_nary dominated_sum_distr_nary.
-    { apply_nary dominated_sum_distr_nary.
-      { apply_nary dominated_mul_cst_l_1_nary.
-        apply_nary dominated_sum_r_nonneg_1_nary; fold_product.
-        { (* ultimately_greater FIXME *)
-          apply ultimately_lift1. rewrite~ positiveP. }
-        { apply ultimately_lift2. ultimately_greater. }
-        reflexivity. }
-      { apply_nary dominated_mul_cst_l_1_nary.
-        apply_nary dominated_sum_r_nonneg_2_nary; fold_product.
-        { apply ultimately_lift1. rewrite~ positiveP. }
-        { apply ultimately_lift2. ultimately_greater. }
-        reflexivity. } }
-    { apply_nary dominated_mul_cst_l_1_nary.
-      eapply dominated_comp_eq with
-          (J := Z_filterType)
-          (p := fun '((t,x):int*int) => t + x : int).
+  repeat apply_nary dominated_sum_distr_nary;
+    try apply_nary dominated_mul_cst_l_1_nary; dominated.
+  eapply dominated_comp_eq with
+    (J := Z_filterType) (p := fun '(t,x) => t + x).
+  apply (cost_dominated lookup_tree_spec). limit.
+  intros [? ?]. reflexivity. intros [? ?]. reflexivity.
 
-      apply (cost_dominated lookup_tree_spec). limit.
-      intros [? ?]. reflexivity. intros [? ?]. reflexivity. } }
-
-  dominated.
   end defer. elia.
 Qed.
 
@@ -808,27 +809,12 @@ Proof.
     forwards~ M: cost_monotonic update_tree_spec (m+n) (m'+n').
     auto with zarith. }
 
-  apply_nary dominated_sum_distr_nary.
-  { apply_nary dominated_sum_distr_nary.
-    { apply_nary dominated_sum_distr_nary.
-      { apply_nary dominated_mul_cst_l_1_nary.
-        apply_nary dominated_sum_r_nonneg_1_nary; fold_product.
-        { apply ultimately_lift1. rewrite~ positiveP. }
-        { apply ultimately_lift2. ultimately_greater. }
-        reflexivity. }
-      { apply_nary dominated_mul_cst_l_1_nary.
-        apply_nary dominated_sum_r_nonneg_2_nary; fold_product.
-        { apply ultimately_lift1. rewrite~ positiveP. }
-        { apply ultimately_lift2. ultimately_greater. }
-        reflexivity. } }
-    { apply_nary dominated_mul_cst_l_1_nary.
-      eapply dominated_comp_eq with
-          (J := Z_filterType)
-          (p := fun '((t,x):int*int) => t + x : int).
-
-      apply (cost_dominated update_tree_spec). limit.
-      intros [? ?]. reflexivity. intros [? ?]. reflexivity. } }
-  dominated.
+  repeat apply_nary dominated_sum_distr_nary;
+    try apply_nary dominated_mul_cst_l_1_nary; dominated.
+  eapply dominated_comp_eq with
+    (J := Z_filterType) (p := fun '(t,x) => t + x).
+  apply (cost_dominated update_tree_spec). limit.
+  intros [? ?]. reflexivity. intros [? ?]. reflexivity.
 
   end defer. elia.
 Qed.

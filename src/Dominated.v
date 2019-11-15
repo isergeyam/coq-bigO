@@ -1322,6 +1322,504 @@ Proof.
 Qed.
 
 (*----------------------------------------------------------------------------*)
+
+(* norm 1 on Z*Z *)
+Definition N1 '((x, y) : Z * Z) : Z :=
+  Z.abs x + Z.abs y.
+
+(* norm ∞ on Z*Z *)
+Definition Ninf '((x, y) : Z * Z) : Z :=
+  Z.max (Z.abs x) (Z.abs y).
+
+Lemma ultimately_N1_Ninf : forall P,
+  ultimately (measure_filterType N1) P <-> ultimately (measure_filterType Ninf) P.
+Proof.
+  intros. rewrite !measureP. unfold N1, Ninf in *. split; intros [x0 H].
+  { exists x0. intros [x y]. specializes H (x, y). intros. apply H. lia. }
+  { exists (2 * x0). intros [x y]. specializes H (x, y). intros. apply H. lia. }
+Qed.
+
+Lemma dominated_N1_Ninf : forall f g,
+  dominated (measure_filterType N1) f g <->
+  dominated (measure_filterType Ninf) f g.
+Proof.
+  intros. unfold dominated.
+  split; intros [c U]; exists c;
+  [ rewrite <-ultimately_N1_Ninf | rewrite ultimately_N1_Ninf]; auto.
+Qed.
+
+(* more generally, all norms on Z^k are equivalent up to a multiplicative
+   constant. *)
+
+Lemma finer_product_N1 :
+  finer (product Z_filterType Z_filterType) (Filter.measure N1).
+Proof.
+  unfold finer. intros P. unfold Filter.measure, invimage, product.
+  intros [Q [[x0 Hx0] HH]].
+  do 2 exists (fun x => x0 <= x). rewrite !ZP. do 2 (split; eauto).
+  intros x y ? ?. apply HH. apply Hx0. unfold N1. lia.
+Qed.
+
+Lemma finer_product_Ninf :
+  finer (product Z_filterType Z_filterType) (Filter.measure Ninf).
+Proof.
+  unfold finer. intros P. unfold Filter.measure, invimage, product.
+  intros [Q [[x0 Hx0] HH]].
+  do 2 exists (fun x => x0 <= x). rewrite !ZP. do 2 (split; eauto).
+  intros x y ? ?. apply HH. apply Hx0. unfold Ninf. lia.
+Qed.
+
+(*----------------------------------------------------------------------------*)
+
+Require Import TLC.LibEpsilon.
+
+Definition max_between (a b : Z) (f : Z -> Z) :=
+  epsilon (fun k => forall x, a <= x <= b -> f x <= k).
+
+Lemma max_betweenP (a b : Z) (f: Z -> Z) :
+  a <= b ->
+  forall x, a <= x <= b ->
+    f x <= (max_between a b f).
+Proof.
+  unfold max_between. intros * HH. epsilon~ E.
+  revert HH. induction_wf: (downto a) b. intros Hab.
+  tests: (a = b).
+  { exists (f b). intros. assert (x = b) as -> by lia. lia. }
+  specializes IH (b-1) __ __.
+  { unfold downto. rewrite LibInt.le_zarith, LibInt.lt_zarith. lia. } { lia. }
+  destruct IH as [k HH]. exists (Z.max k (f b)). intros x ?.
+  tests: (x = b). lia. specializes HH x. lia.
+Qed.
+
+(* Lemma max_between_mono : forall a b f g, *)
+(*   (forall x, a <= x <= b -> f x <= g x) -> *)
+(*   max_between a b f <= max_between a b g. *)
+(* Proof. *)
+(*   intros * Hfg.  *)
+
+Definition max_between2 (x0 x1 y0 y1 : Z) (f : Z -> Z -> Z) :=
+  max_between x0 x1 (fun x => max_between y0 y1 (f x)).
+
+Lemma max_between2P (f : Z -> Z -> Z) (x0 x1 y0 y1 : Z) :
+  x0 <= x1 ->
+  y0 <= y1 ->
+  forall x y, x0 <= x <= x1 -> y0 <= y <= y1 ->
+    f x y <= max_between2 x0 x1 y0 y1 f.
+Proof.
+  intros. unfold max_between2.
+  etransitivity. 2: apply max_betweenP. apply max_betweenP. all: lia.
+Qed.
+
+Lemma cumul_le : forall lo hi f g,
+  (forall i, lo <= i < hi -> f i <= g i) ->
+  cumul lo hi f <= cumul lo hi g.
+Proof.
+  intros. apply big_covariant with (R := Z.le); try typeclass.
+  intros. eauto using in_interval_hi, in_interval_lo.
+Qed.
+
+Lemma cumul_mul_k_le : forall lo hi c f,
+  cumul lo hi (fun x => c * f x) = c * cumul lo hi f.
+Proof.
+  intros *. induction_wf: (upto hi) lo. unfold cumul. interval_case_l lo hi.
+  { intros. cbn. lia. }
+  { intros. cbn. unfold cumul, Big.big in IH. rewrite IH. 2: upto. cbn. nia. }
+Qed.
+
+Lemma dominated_norm_Z2_big_sum :
+  forall (f g : Z -> Z -> Z) (lo : Z),
+  ultimately (measure_filterType Ninf) (fun '(x, y) => 0 < g x y) ->
+  dominated (measure_filterType Ninf)
+    (fun '(x, y) => f x y) (fun '(x, y) => g x y) ->
+  dominated (measure_filterType Ninf)
+    (fun '(x, y) => cumul lo y (fun i => f x i))
+    (fun '(x, y) => cumul lo y (fun i => g x i)).
+Proof.
+  intros * Ugpos (c & c_pos & U_f_le_g)%dominated_nonneg_const.
+  revert Ugpos U_f_le_g; filter_intersect;=> U. simpl in *.
+
+  (* XX *)
+  assert (exists N, 0 <= N /\ forall x y, N <= Ninf (x, y) ->
+    0 < g x y /\ Z.abs (f x y) <= c * Z.abs (g x y)) as [N [HN0 HN]].
+  { cbn in U. unfold invimage in U. destruct U as [Q [UQ HQ]].
+    rewrite ZP in UQ. destruct UQ as [N0 HN0]. exists (Z.max 0 N0).
+    split; [ lia |]. intros x y **. specializes HQ (x, y) __.
+    eauto with zarith. }
+
+  pose_big cc Z. assert (0 <= cc) by big.
+  pose (c' := c + cc). exists c'.
+  assert (c <= c') as Hcc' by (unfold c'; lia).
+  rewrite measureP.
+  exists_big N' Z. intros [x y] Hxy.
+  assert (N <= N') as HNN' by big.
+
+  tests C: (y <= lo).
+  { unfold cumul. rewrite !interval_empty; try lia. cbn -[c']. lia. }
+  assert (lo < y) by lia. clear C.
+
+  tests C: (N <= Z.abs x \/ N' <= Z.abs x \/ lo > N' \/ y < N' \/ lo > N \/ y < N).
+  { assert (0 <= cumul lo y (g x)).
+    { apply cumul_nonneg. intros i ? ?.
+      lets~ [? ?]: HN x i __. unfold Ninf in *. all: lia. }
+    rewrite~ (Z.abs_eq (cumul lo y (fun i => g x i))).
+    assert (HH: forall i, lo <= i < y -> Z.abs (f x i) <= c * g x i).
+    { intros. lets~ [? HI]: HN x i __. unfold Ninf in *. all: nia. }
+    forwards~ HH1: cumul_le lo y (fun i => Z.abs (f x i)) (fun i => c * g x i);[].
+    rewrite cumul_mul_k_le in HH1. rewrite cumul_triangle, HH1.
+    change (fun i => g x i) with (g x). nia. }
+  assert (Z.abs x < N' /\ Z.abs x < N /\
+          N <= Z.abs y /\ lo <= N' /\ N' <= y /\ lo <= N /\ N' <= y)
+    as (?&?&?&?&?&?&?) by (unfold Ninf in Hxy; lia). clear C.
+
+  rewrite !(@cumul_split N lo y); try lia.
+  rewrite !(@cumul_split N' N y); try lia.
+  change (fun i => f x i) with (f x). change (fun i => g x i) with (g x).
+  rewrite (Z.abs_triangle (cumul lo N (f x))).
+  rewrite (Z.abs_triangle (cumul N N' (f x))).
+  rewrite !cumul_triangle, !Z.add_assoc.
+  assert (N' - N <= cumul N N' (g x)) as HgNN'.
+  { rewrite <-(@cumul_le N N' (fun _ => 1)).
+    now rewrite cumul_const; lia.
+    intros i **. lets~ [? ?]: HN x i __. unfold Ninf in *. all: lia. }
+  pose (Kg := - max_between (-N) N (fun x => - cumul lo N (g x))).
+  assert (Kg <= cumul lo N (g x)) as HgloN.
+  { unfold Kg. rewrite <-max_betweenP.
+    rewrite Z.opp_involutive; reflexivity. all: lia. }
+  assert (0 <= cumul lo N (g x) + cumul N N' (g x)).
+  { rewrite <-HgNN'. rewrite <-HgloN. enough (N - Kg <= N') by lia. big. }
+  assert (0 <= cumul N' y (g x)).
+  { apply cumul_nonneg.
+    intros i **. lets~ [? ?]: HN x i. unfold Ninf in *. all: lia. }
+  rewrite (Z.abs_eq (cumul lo N (g x) + cumul N N' (g x) + cumul N' y (g x)));
+    [|lia].
+  assert (cumul N' y (fun i => Z.abs (f x i)) <= c' * cumul N' y (g x)).
+  { assert (HH: forall i, N' <= i < y -> Z.abs (f x i) <= c * g x i).
+    { intros. lets~ [? ?]: HN x i __. unfold Ninf in *. all: nia. }
+    forwards~ HH1: cumul_le N' y (fun i => Z.abs (f x i)) (fun i => c * g x i);[].
+    rewrite cumul_mul_k_le in HH1. rewrite HH1. nia. }
+
+  assert (cumul N N' (fun i => Z.abs (f x i)) <= c * cumul N N' (g x)).
+  { assert (forall i, N <= i < N' -> Z.abs (f x i) <= c * g x i).
+    { intros. lets~ [? ?]: HN x i __. unfold Ninf in *. 2: nia. lia. }
+    forwards~ HH1: cumul_le N N' (fun i => Z.abs (f x i)) (fun i => c * g x i);[].
+    rewrite cumul_mul_k_le in HH1. rewrite HH1. nia. }
+
+  enough (
+    cumul lo N (fun i => Z.abs (f x i))
+    <= (c + cc) * cumul lo N (g x) + cc * cumul N N' (g x)
+  ) by (unfold c' in *; lia).
+
+  pose (L := N - lo).
+  pose (K := max_between2 (-N) N lo N (fun x y => Z.abs (f x y))).
+
+  rewrite <-HgloN by lia. rewrite <-HgNN'.
+  assert (cumul lo N (fun i => Z.abs (f x i)) <= L * K).
+  { transitivity
+      (cumul lo N (fun _ => max_between lo N (fun i => Z.abs (f x i)))).
+    - apply cumul_le. intros. rewrite <-max_betweenP. reflexivity. all: lia.
+    - rewrite cumul_const by lia. unfold L. unfold K.
+      apply Z.mul_le_mono_nonneg_l; [lia|].
+      unfold max_between2.
+      eapply (@max_betweenP (-N) N
+        (fun x => max_between lo N (fun y => Z.abs (f x y)))). all: lia. }
+
+  enough (L * K - c * Kg <= cc * (Kg + N' - N)) by lia.
+  assert (1 <= Kg + N' - N) as <-. { enough (1 + N - Kg <= N') by lia. big. }
+  rewrite Z.mul_1_r. big.
+  close. close.
+Qed.
+
+
+Section Nat_bijection.
+
+Open Scope nat_scope.
+
+(* 0, 1, 3, 6, 10, 15, ... *)
+Definition triangle_nb (n: nat) :=
+  (n * (n + 1) / 2).
+
+Lemma triangle_0 : triangle_nb 0 = 0.
+Proof. reflexivity. Qed.
+Lemma triangle_S n : triangle_nb (S n) = triangle_nb n + (S n).
+Proof.
+  unfold triangle_nb.
+  assert (n * (n+1) / 2 + S n = ((S n) * 2 + n * (n+1)) / 2) as ->.
+  { rewrite Nat.div_add_l; lia. } fequal. lia.
+Qed.
+
+Definition nat_prod_encode : nat * nat -> nat :=
+  fun '(m, n) => triangle_nb (m + n) + m.
+
+Require Import FunInd Recdef.
+
+Function nat_prod_decode_aux (k m: nat) {wf lt m} : nat * nat :=
+  if le_lt_dec m k (* m <= k *) then (m, k - m)
+  else nat_prod_decode_aux (S k) (m - S k).
+Proof. intros k m Hkm _. lia. apply Nat.lt_wf_0. Qed.
+
+Lemma nat_prod_decode_aux_base k m :
+  m <= k -> nat_prod_decode_aux k m = (m, k - m).
+Proof.
+  revert k m.
+  apply (@nat_prod_decode_aux_ind (fun k m x => m <= k -> x = (m, k - m))).
+  now auto.
+  intros * E _. destruct (le_lt_dec m k). congruence. clear E. lia.
+Qed.
+
+Lemma nat_prod_decode_aux_rec_case k m :
+  m > k -> nat_prod_decode_aux k m = nat_prod_decode_aux (S k) (m - S k).
+Proof.
+  revert k m.
+  apply (@nat_prod_decode_aux_ind
+    (fun k m x => m > k -> x = nat_prod_decode_aux (S k) (m - S k))).
+  { intros * E **. destruct (le_lt_dec m k); clear E; lia. }
+  { auto. }
+Qed.
+
+Definition nat_prod_decode : nat -> nat * nat := nat_prod_decode_aux 0.
+
+Lemma nat_prod_encode_prod_decode_aux k m :
+  nat_prod_encode (nat_prod_decode_aux k m) = triangle_nb k + m.
+Proof.
+  revert k m.
+  apply (@nat_prod_decode_aux_ind
+    (fun k m x => nat_prod_encode x = triangle_nb k + m)).
+  { intros * E. destruct (le_lt_dec m k); [clear E| congruence].
+    unfold nat_prod_encode. rewrite le_plus_minus_r; auto. }
+  { intros * E ->. destruct (le_lt_dec m k); [congruence | clear E].
+    rewrite triangle_S. lia. }
+Qed.
+
+Lemma nat_prod_decode_inverse n : nat_prod_encode (nat_prod_decode n) = n.
+Proof.
+  unfold nat_prod_decode. rewrite nat_prod_encode_prod_decode_aux.
+  reflexivity.
+Qed.
+
+Lemma nat_prod_decode_triangle_add k m :
+  nat_prod_decode (triangle_nb k + m) = nat_prod_decode_aux k m.
+Proof.
+  revert m. induction k; intros m. reflexivity.
+  rewrite triangle_S, <-Nat.add_assoc, IHk.
+  now rewrite nat_prod_decode_aux_rec_case, minus_plus by lia.
+Qed.
+
+Lemma nat_prod_encode_inverse x : nat_prod_decode (nat_prod_encode x) = x.
+Proof.
+  destruct x as [m n]. unfold nat_prod_encode.
+  rewrite nat_prod_decode_triangle_add.
+  rewrite nat_prod_decode_aux_base. fequal; lia. lia.
+Qed.
+
+Lemma le_nat_prod_encode_1 n m : n <= nat_prod_encode (n, m).
+Proof. unfold nat_prod_encode, triangle_nb. lia. Qed.
+
+Lemma le_nat_prod_encode_2 n m : m <= nat_prod_encode (n, m).
+Proof.
+  revert n. induction m.
+  - intros. unfold nat_prod_encode, triangle_nb. lia.
+  - intros n. unfold nat_prod_encode in *.
+    rewrite Nat.add_succ_r, triangle_S. specialize (IHm n). lia.
+Qed.
+
+Lemma le_nat_prod_encode_input_size : forall n m N,
+  (N+1)^2 <= nat_prod_encode (n, m) ->
+  N <= n + m.
+Proof.
+  intros *. unfold nat_prod_encode, triangle_nb.
+  assert ((n + m) * (n + m + 1) = (n + m) * (n + m) + (n + m)) as -> by nia.
+  intros HH.
+  apply Nat.mul_le_mono_r with (p := 2) in HH.
+  rewrite Nat.mul_add_distr_r in HH.
+  assert (E: forall x, x / 2 * 2 <= x); [| rewrite E in HH; clear E].
+  { intros. rewrite Nat.mul_comm, Nat.mul_div_le; lia. }
+  rewrite Nat.pow_2_r in HH. nia.
+Qed.
+
+(* nat + nat *)
+
+Definition nat_sum_encode : nat + nat -> nat :=
+  fun x => match x with inl a => 2 * a | inr a => S (2 * a) end.
+
+Definition nat_sum_decode : nat -> nat + nat :=
+  fun n => if Even.even_odd_dec n then inl (n / 2) else inr (n / 2).
+
+Lemma even_double : forall n, Even.even (2 * n).
+Proof.
+  induction n. constructor.
+  assert (2 * S n = S (S (2 * n)))%nat as -> by lia.
+  do 2 constructor. auto.
+Qed.
+
+Lemma odd_S_double : forall n, Even.odd (S (2 * n)).
+Proof.
+  intros. constructor. apply even_double.
+Qed.
+
+Lemma S_div_mult_2 : forall n, S (2 * n) / 2 = n.
+Proof.
+  intros. rewrite <-Nat.div2_div.
+  now rewrite Div2.div2_double_plus_one.
+Qed.
+
+Lemma nat_sum_encode_inverse x : nat_sum_decode (nat_sum_encode x) = x.
+Proof.
+  unfold nat_sum_encode, nat_sum_decode.
+  destruct x as [a|b].
+  { destruct (Even.even_odd_dec (2 * a)).
+    - fequal. now rewrite LibNatExtra.div_mult_2.
+    - exfalso. eapply Even.not_even_and_odd; eauto. apply even_double. }
+  { destruct (Even.even_odd_dec (S (2 * b))).
+    - exfalso. eapply Even.not_even_and_odd; eauto. apply odd_S_double.
+    - fequal. now rewrite S_div_mult_2. }
+Qed.
+
+Lemma nat_sum_decode_inverse n : nat_sum_encode (nat_sum_decode n) = n.
+Proof.
+  unfold nat_sum_encode, nat_sum_decode.
+  destruct (Even.even_odd_dec n).
+  { now rewrite <-Nat.div2_div, <-Nat.double_twice, <-Div2.even_double. }
+  { now rewrite <-Nat.div2_div, <-Nat.double_twice, <-Div2.odd_double. }
+Qed.
+
+(* Z *)
+
+Definition nat_Z_encode (x: Z) : nat :=
+  nat_sum_encode (
+    if Z_le_gt_dec 0 x (* 0 <= x *) then inl (Z.to_nat x)
+    else inr (Z.to_nat (- x - 1))
+  ).
+
+Definition nat_Z_decode (n: nat): Z :=
+  match nat_sum_decode n with inl x => Z.of_nat x | inr x => - Z.of_nat x - 1 end.
+
+Lemma nat_Z_encode_inverse x : nat_Z_decode (nat_Z_encode x) = x.
+Proof.
+  unfold nat_Z_decode, nat_Z_encode; rewrite nat_sum_encode_inverse.
+  destruct (Z_le_gt_dec 0 x); rewrite Z2Nat.id; lia.
+Qed.
+
+Lemma nat_Z_decode_inverse n : nat_Z_encode (nat_Z_decode n) = n.
+Proof.
+  unfold nat_Z_decode, nat_Z_encode.
+  case_eq (nat_sum_decode n).
+  { intros k Hk; rewrite Nat2Z.id. rewrite <-Hk.
+    case_eq (Z_le_gt_dec 0 (Z.of_nat k)).
+    { intros. now rewrite nat_sum_decode_inverse. }
+    { intros. exfalso. lia. } }
+  { intros k Hk. case_eq (Z_le_gt_dec 0 (- Z.of_nat k - 1)).
+    { intros. exfalso. lia. }
+    { intros. assert (- (- Z.of_nat k - 1) - 1 = Z.of_nat k)%Z as -> by lia.
+      rewrite Nat2Z.id. now rewrite <-Hk, nat_sum_decode_inverse. } }
+Qed.
+
+Lemma le_nat_Z_encode x : Z.to_nat (Z.abs x) <= nat_Z_encode x.
+Proof.
+  unfold nat_Z_encode. destruct (Z_le_gt_dec 0 x).
+  - cbn. rewrite Z.abs_eq by lia. lia.
+  - cbn. rewrite Z.abs_neq by lia.
+    rewrite Nat.add_0_r, <-Z2Nat.inj_add by lia.
+    rewrite <-Z2Nat.inj_succ by lia.
+    apply Z2Nat.inj_le. all:lia.
+Qed.
+
+Lemma le_nat_Z_encode_input_size x N :
+  2*N+1 <= nat_Z_encode x ->
+  N <= Z.to_nat (Z.abs x).
+Proof.
+  unfold nat_Z_encode. destruct (Z_le_gt_dec 0 x).
+  - cbn. rewrite Z.abs_eq by lia. lia.
+  - cbn. rewrite Z.abs_neq by lia.
+    rewrite !Nat.add_0_r, <-Z2Nat.inj_add by lia.
+    rewrite <-Z2Nat.inj_succ, <-Z.add_1_r by lia.
+    match goal with |- context [Z.to_nat ?x] => ring_simplify x end.
+    rewrite <-(Nat2Z.id (N+N+1)).
+    rewrite <-Z2Nat.inj_le by lia. intro.
+    rewrite <-(Nat2Z.id N), <-Z2Nat.inj_le by lia.
+    rewrite !Nat2Z.inj_add in H. lia.
+Qed.
+
+(* Z <-> Z*Z *)
+
+Definition Z_ZZ_encode : Z * Z -> Z :=
+  fun '(x, y) => nat_Z_decode (
+    nat_prod_encode (nat_Z_encode x, nat_Z_encode y)
+  ).
+
+Definition Z_ZZ_decode : Z -> Z * Z :=
+  fun x =>
+    let '(n, m) := nat_prod_decode (nat_Z_encode x) in
+    (nat_Z_decode n, nat_Z_decode m).
+
+Lemma Z_ZZ_decode_inverse x : Z_ZZ_encode (Z_ZZ_decode x) = x.
+Proof.
+  unfold Z_ZZ_encode, Z_ZZ_decode.
+  pose (p := nat_prod_decode (nat_Z_encode x)). fold p.
+  rewrite (surjective_pairing p), !nat_Z_decode_inverse.
+  rewrite <-(surjective_pairing p). subst p.
+  now rewrite nat_prod_decode_inverse, nat_Z_encode_inverse.
+Qed.
+
+Lemma Z_ZZ_encode_inverse p : Z_ZZ_decode (Z_ZZ_encode p) = p.
+Proof.
+  unfold Z_ZZ_encode, Z_ZZ_decode.
+  rewrite (surjective_pairing p), !nat_Z_decode_inverse.
+  now rewrite nat_prod_encode_inverse, !nat_Z_encode_inverse.
+Qed.
+
+Lemma le_Z_ZZ_encode_1 x y :
+  (Z.abs x <= Z.abs (Z_ZZ_encode (x, y)))%Z.
+Proof.
+  unfold Z_ZZ_encode.
+  lets: le_nat_prod_encode_1 (nat_Z_encode x) (nat_Z_encode y).
+  (* lets: le_nat_Z_encode x. *)
+Abort.
+
+End Nat_bijection.
+
+(* WIP.. *)
+(*
+Parameter i : Z*Z -> Z.
+Parameter j : Z -> Z*Z.
+
+Hypothesis ij : forall x, i (j x) = x.
+Hypothesis ji : forall x, j (i x) = x.
+
+Hypothesis i_norm_1 : forall x, Ninf x <= Z.abs (i x).
+
+Definition Ninf3 '(x, y, z) := Z.max (Z.abs x) (Z.max (Z.abs y) (Z.abs z)).
+
+Require Import TLC.LibIntTactics.
+
+Lemma dominated_norm_Z3_big_sum :
+  forall (f g : Z -> Z -> Z -> Z) (lo : Z),
+  ultimately (measure_filterType Ninf3) (fun '(x, y, z) => 0 < g x y z) ->
+  dominated (measure_filterType Ninf3)
+    (fun '(x, y, z) => f x y z) (fun '(x, y, z) => g x y z) ->
+  dominated (measure_filterType Ninf3)
+    (fun '(x, y, z) => cumul lo y (fun i => f x y i))
+    (fun '(x, y, z) => cumul lo y (fun i => g x z i)).
+Proof.
+  intros * U D.
+  pose (f' := fun x y => f (fst (j x)) (snd (j x)) y).
+  pose (g' := fun x y => g (fst (j x)) (snd (j x)) y).
+
+  assert (ultimately (measure_filterType Ninf) (fun '(x, y) => 0 < g' x y)).
+  { unfold g'. rewrite measureP. rewrite measureP in U. destruct U as [N U].
+    exists N. intros [x y]. intros. refine (U (_,_,_) _). unfold Ninf, Ninf3 in *.
+
+    lets HH: i_norm_1 (j x). rewrite ij in HH. unfold Ninf in HH.
+    destruct (j x) as [j0 j1]. cbn.
+    rewrite Z.max_assoc.
+    assert (HHH: Z.max (Z.max (Z.abs j0) (Z.abs j1)) (Z.abs y) <=  Z.max (Z.abs x) (Z.abs y)).
+    { apply Z.max_le_compat_r. auto. }
+
+
+
+  lets: @dominated_norm_Z2_big_sum f' g' lo.
+*)
+
+(*----------------------------------------------------------------------------*)
 (** Some automation *)
 
 Hint Resolve dominated_reflexive : dominated.

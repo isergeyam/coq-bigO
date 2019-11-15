@@ -249,3 +249,12 @@ Proof.
   rewrite~ List.map_app. cbn. rewrite big_app. cbn.
   rewrite Z.add_0_r. reflexivity. typeclass.
 Qed.
+
+Lemma cumul_triangle : forall lo hi (f : Z -> Z),
+  Z.abs (cumul lo hi f) <= cumul lo hi (fun x => Z.abs (f x)).
+Proof.
+  intros *. induction_wf: (upto hi) lo. unfold cumul. interval_case_l lo hi.
+  { intros. cbn. lia. }
+  { intros. cbn. unfold cumul, Big.big in IH. rewrite Z.abs_triangle, IH.
+    2: upto. cbn. lia. }
+Qed.

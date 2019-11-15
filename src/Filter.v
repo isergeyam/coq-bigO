@@ -951,8 +951,8 @@ Arguments often : clear implicits.
 (* ---------------------------------------------------------------------------- *)
 
 Section InvImage.
-  Variable B : filterType.
   Variable A : Type.
+  Variable B : filterType.
 
   Variable f : A -> B.
 
@@ -980,7 +980,7 @@ Arguments invimage : clear implicits.
 Arguments invimage_filterType : clear implicits.
 
 Lemma invimageP : forall A B f P,
-  ultimately (invimage_filterType B A f) P =
+  ultimately (invimage_filterType A B f) P =
   (exists Q, ultimately B Q /\ (forall a, Q (f a) -> P a)).
 Proof. reflexivity. Qed.
 
@@ -1033,4 +1033,24 @@ Lemma within_finer :
 Proof.
   introv. unfold finer. intros Q. rewrite withinP.
   filter_closed_under_intersection. tauto.
+Qed.
+
+(* ---------------------------------------------------------------------------- *)
+
+Definition measure {A} (m: A -> Z) : Filter.filter A :=
+  invimage A Z_filterType m.
+
+Definition measure_filterType {A} (m: A -> Z) :=
+  invimage_filterType A Z_filterType m.
+
+Lemma measureP : forall A (m: A -> Z) P,
+  ultimately (measure_filterType m) P =
+  exists x0, forall x, (x0 <= m x)%Z -> P x.
+Proof.
+  intros. apply prop_ext. cbn. unfold invimage.
+  split; intros H.
+  - destruct H as [Q [HQ H]]. rewrite ZP in HQ.
+    destruct HQ as [x0 H0]. exists x0. auto.
+  - destruct H as [x0 H0]. exists (fun x => x0 <= x)%Z.
+    rewrite ZP. eauto.
 Qed.

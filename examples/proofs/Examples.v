@@ -1019,7 +1019,7 @@ Qed.
 (**********)
 
 Parameter search_spec' :
-  specO (@invimage_filterType Z_filterType tree height) eq
+  specO (@invimage_filterType tree Z_filterType height) eq
     (fun cost => forall (t: tree),
        app search [t]
          PRE (\$ cost t)
@@ -1027,7 +1027,7 @@ Parameter search_spec' :
     (fun x => height x).
 
 Parameter search_spec'' :
-  specO (@invimage_filterType Z_filterType tree size) eq
+  specO (@invimage_filterType tree Z_filterType size) eq
     (fun cost => forall (t: tree),
        app search [t]
          PRE (\$ cost t)
@@ -1035,7 +1035,7 @@ Parameter search_spec'' :
     (fun x => height x).
 
 Lemma search_spec_balanced' :
-  specO (within_filterType (@invimage_filterType Z_filterType tree height) balanced) eq
+  specO (within_filterType (@invimage_filterType tree Z_filterType height) balanced) eq
     (fun cost => forall (t: tree),
        balanced t ->
        app search [t]
@@ -1070,7 +1070,7 @@ Qed.
 
 Lemma invimage_mono_finer : forall A f g,
   (forall a, f a <= g a) ->
-  finer (invimage Z_filterType A f) (invimage Z_filterType A g).
+  finer (invimage A Z_filterType f) (invimage A Z_filterType g).
 Proof.
   introv Hfg Uf. unfold invimage in *. destruct Uf as [Q [UQ HQ]].
   destruct UQ as [n0 Hn].
@@ -1079,7 +1079,7 @@ Proof.
   introv [? ?]. apply HQ. apply Hn. transitivity (f a). 2: apply Hfg. auto.
 Qed.
 
-Goal ultimately (invimage_filterType Z_filterType tree (fun _ => 0)) (fun t => 1 <= size t).
+Goal ultimately (invimage_filterType tree Z_filterType (fun _ => 0)) (fun t => 1 <= size t).
   apply invimage_mono_finer with size.
   admit.
   cbn.
@@ -1087,13 +1087,13 @@ Goal ultimately (invimage_filterType Z_filterType tree (fun _ => 0)) (fun t => 1
   auto.
 Admitted.
 
-Goal ultimately (invimage_filterType Z_filterType tree (fun _ => 0)) (fun t => 1 <= size t).
+Goal ultimately (invimage_filterType tree Z_filterType (fun _ => 0)) (fun t => 1 <= size t).
   rewrite invimageP.
   exists (fun n:Z => 1 <= n). split. apply ultimately_ge_Z. eauto with zarith.
 Qed.
 
 Lemma search_spec_balanced'' :
-  specO (within_filterType (@invimage_filterType Z_filterType tree size) balanced) eq
+  specO (within_filterType (@invimage_filterType tree Z_filterType size) balanced) eq
     (fun cost => forall (t: tree),
        balanced t ->
        app search [t]

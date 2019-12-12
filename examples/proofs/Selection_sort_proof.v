@@ -111,5 +111,5 @@ Proof.
     { repeat apply_nary dominated_sum_distr_nary; dominated.
       apply dominated_reflexive. all: cbn; dominated. }
     1, 2: now ultimately_greater.
-    { monotonic. intros ? ? H. destruct~ H. } now limit. now cbn; dominated.
+    { monotonic. intros ? ? H. destruct~ H. } now limit. now cbn; dominated. }
 Qed.

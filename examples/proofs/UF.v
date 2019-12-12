@@ -51,7 +51,7 @@ Theorem find_specO :
          PRE  (\$(cost (card D)) \* UF D R V)
          POST (fun y => UF D R V \* \[ R x = y ])))
     alpha.
-Proof using.
+Proof using alpha_limit alpha_monotonic alpha_nonneg card_nonneg.
   xspecO_refine straight_line. intros. xapply find_spec. applys~ H.
   (* workaround *) sets cD: (card D). hsimpl; piggybank: *rhs. hsimpl~.
   cleanup_cost. monotonic. dominated.

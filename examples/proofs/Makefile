@@ -52,6 +52,7 @@ SOURCES := \
   BinaryRandomAccessList.ml \
 	composing_specs.ml \
 	mccarthy.ml \
+	lcs.ml
 #	merge_sort.ml
 
 CF := $(PWD)/_cf

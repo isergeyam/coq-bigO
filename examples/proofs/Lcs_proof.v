@@ -66,73 +66,73 @@ Proof.
   xspecO_refine straight_line. xcf. 
   xpay.  xapp~. intros. xapp~. intros. xapp~. hsimpl_credits. 
   intros. xapp~. hsimpl_credits. intros. 
-  (* intros. xapp~. xpay. xapp~. hsimpl_credits. hsimpl_credits. subst. admit. 
-  Focus 2. hsimpl_credits. Focus 2.  intros.  *)
-  xseq. weaken. xfor_inv (fun (i:int) => 
+  xseq. weaken. 
+  xfor_inv (fun (i:int) => 
     Hexists (x0 : list (array (list int)))
-    (x1 : list (list int)),
-    Hforall (i1 : int),
+    (x1 : list (list (list int))),
     p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
-    (nth (to_nat i1) x0) ~> Array x1 \* 
-    \[length x0 = n + 1 /\ length x1 = m + 1 /\ 0 <= i1 <= n]). 
+    \[index x0 (n + 1) /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] (m + 1) /\ 
+    (\[] ==> (x0[i1] ~> Array x1[i1]))]).  
   math. intros. 
   {
     xpull. intros. 
     xpay. weaken. 
-    (* xfor_inv (fun (j:int) => p1 ~> Array l1 \* p2 ~> Array l2 \* x0__ ~> Array x \* c ~> Array x0).  *)
   xfor_inv (fun (i:int) => 
     Hexists (x0 : list (array (list int)))
-    (x1 : list (list int)),
-    Hforall (i1 : int),
+    (x1 : list (list (list int))),
     p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
-    (nth (to_nat i1) x0) ~> Array x1 \* 
-    \[length x0 = n + 1 /\ length x1 = m + 1 /\ 0 <= i1 <= n]). 
-    (* xfor_inv (fun (i:int) => 
-    Hexists (x0 : list (array (list int)))
-    (x1 : list (list int)), 
-    p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
-    (nth (to_nat i) x0) ~> Array x1 \* 
-    \[length x0 = n + 1 /\ length x1 = m + 1]).  *)
+    \[index x0 (n + 1) /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] (m + 1) /\ 
+    (\[] ==> (x0[i1] ~> Array x1[i1]))]).  
     math. intros. {
-      xpull. intros. xpay. xapps~. apply~ int_index_prove. Focus 2. hsimpl. 
-      xapps~. apply~ int_index_prove. 
-      xret. intros. xif. 
+      xpull. intros. xpay. xapps~. apply~ int_index_prove. 
+      xapps~. apply~ int_index_prove. xret. intros. xif. 
       {
-        xapp~. apply~ int_index_prove. intros. 
-        xapp~. apply~ int_index_prove. 
-        (*rewrite length_make. -- doesn't work because LibList.length*)
-        admit. intros. 
-        xapp~. apply~ int_index_prove. 
-        (* TODO: make more assumptions about c in the invariant in order to prove this *)
-        admit. admit. 
-        intros. xret. intros. 
-        xapp~.
-        (* TODO: make more assumptions about c in the invariant in order to prove this *)
-        admit. admit. 
-        intros. xapp~. 
-        (* TODO: make more assumptions about c in the invariant in order to prove this *)
-        admit. admit. 
-        hsimpl. admit. 
-        (* intros. Focus 2. rewrite 
-        H2 in H6. 
-        rewrite read_make in H6. rewrite H6. hsimpl. apply~ int_index_prove. 
-        (*rewrite length_make. (*-- doesn't work because LibList.length*)*)
-        admit. intros. 
-        xret. intros. xapp~. apply~ int_index_prove. 
-        (*rewrite length_make. (*-- doesn't work because LibList.length*)*)
-        admit. intros. xapp~. Focus 2. rewrite H2 in H9. rewrite read_make in H9. 
-        rewrite H9.  *)
+        destruct H6 as [H6 H7]. 
+        xapps~. apply~ int_index_prove. 
+        xapps~. 
+        rewrite index_eq_inbound in H6. 
+        apply~ int_index_prove. assert (H9 := H7). 
+        specialize (H7 (i-1)). 
+        destruct H7 as [H7 H8]. math. 
+        xapps~. Focus 2. 
+        xchange H8. hsimpl. rewrite index_eq_inbound in H7. 
+        apply~ int_index_prove. xret. intros. xapp~. 
+        rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+        intros. xapp~. Focus 2. specialize (H9 i). 
+        destruct H9 as [H9 H99]. math. rewrite H11. 
+        xchange H99. hsimpl. specialize (H9 i). 
+        destruct H9 as [H9 H99]. math. 
+        rewrite index_eq_inbound in H9. apply~ int_index_prove. 
+        hsimpl. split; auto.  
       }
-  }
-  (* admit. intros. xpay. 
-  xfor_inv (fun (j:int) => p1 ~> Array l1 \* p2 ~> Array l2). admit. intros. xpay. xapp. 
-  {apply~ int_index_prove. admit. admit. }
-  intros. xapp. 
-  {apply~ int_index_prove. admit. admit. } 
-  intros. xret. intros. xif. 
-  { xapp~. 
-  {apply~ int_index_prove. admit. admit. } 
-  intros. xapp~. 
-  {apply~ int_index_prove. admit. admit. } 
-  } *)
-Admitted.
+      {
+        destruct H6 as [H6 H7]. 
+        xapps~. rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+        xapps~. 2: {
+          specialize (H7 i). destruct H7 as [H7 H8]. 
+          math. xchange H8. hsimpl. 
+        }
+        {
+          specialize (H7 i). destruct H7 as [H7 H8]. 
+          math. rewrite index_eq_inbound in H7. 
+          apply~ int_index_prove. 
+        }
+        xret. intros. xapp~. 
+        rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+        intros. xapp~. 
+        2: {rewrite H9. 
+          specialize (H7 (i-1)). destruct H7 as [H7 H10]. 
+          math. xchange H10. hsimpl. 
+        } intros. 
+        { specialize (H7 (i-1)). destruct H7 as [H7 H10]. 
+          math. rewrite index_eq_inbound in H7. 
+          apply~ int_index_prove. 
+        } intros. xret. intros. xif. {
+          xapp~. 
+          rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+          intros. xapp~. 2: {
+            rewrite H12. 
+            specialize (H7 (i-1)). destruct H7 as [_ H7]. 
+            math. xchange H7. hsimpl. admit. 
+          }
+Admitted. 

@@ -56,8 +56,8 @@ Lemma lcs_spec:
   (fun '(n,m) => n * m).
 Proof.
   xspecO_refine straight_line. xcf. 
-  xpay.  xapp~. intros. xapp~. intros. xapp~. hsimpl_credits. 
-  intros. xapp~. hsimpl_credits. intros. 
+  xpay.  xapp~. intros. xapp~. intros. rewrite <- H. rewrite <- H0. xapp~. intros. 
+  xapp~. intros. 
   xseq. weaken. 
   xfor_inv (fun (i:int) => 
     Hexists (x0 : list (array (list int)))
@@ -182,22 +182,6 @@ Proof.
     destruct H3 as [H3 H5]. specialize (H5 n). 
     apply H5. math. 
   }
-  intros. xapp~. hsimpl. 
+  intros. xapp~. 
   cleanup_cost. 
-  assert (index x[i1])
-  instantiate (x := x). 
-  3: {
-    xpull. intros. xapp~. destruct H3 as [H3 _]. assumption. 
-    intros. xapp~. 2: {
-      rewrite H4. destruct H3 as [_ H3]. specialize (H3 n). 
-      destruct H3. math. xchange H5. hsimpl. 
-    }
-    {
-      destruct H3 as [_ H3]. specialize (H3 n). 
-      destruct H3. math. assumption. 
-    }
-    intros. xapp~. hsimpl. 
-  }admit. 
-  rewrite H. rewrite H0. 
-  match goal with |- cumul _ _ (fun _ => ?x) <= _ => ring_simplify x end. 
-Qed. 
+Admitted. 

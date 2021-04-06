@@ -41,14 +41,6 @@ Definition ZZle (p1 p2 : Z * Z) :=
   let (x2, y2) := p2 in
   1 <= x1 <= x2 /\ 0 <= y1 <= y2.
 
-Definition hforall (A:Type) (J:A->hprop) : hprop :=
-  fun (h:heap) => forall x, J x h.
-
-Notation "'Hforall' x1 .. xn , H" :=
-  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
-  (at level 39, x1 binder, H at level 50, right associativity,
-    format "'[' 'Hforall' '/ ' x1 .. xn , '/ ' H ']'").
-
 (* ATTENTION: INCOMPLETE, WON'T COMPILE, SHOULD BE COMMENTED OUT *)
 Lemma lcs_spec:
   specO
@@ -71,7 +63,7 @@ Proof.
     Hexists (x0 : list (array (list int)))
     (x1 : list (list (list int))),
     p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
-    \[index x0 (n + 1) /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] (m + 1) /\ 
+    \[index x0 n /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] m /\ 
     (\[] ==> (x0[i1] ~> Array x1[i1]))]).  
   math. intros. 
   {
@@ -81,7 +73,7 @@ Proof.
     Hexists (x0 : list (array (list int)))
     (x1 : list (list (list int))),
     p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
-    \[index x0 (n + 1) /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] (m + 1) /\ 
+    \[index x0 n /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] m /\ 
     (\[] ==> (x0[i1] ~> Array x1[i1]))]).  
     math. intros. {
       xpull. intros. xpay. xapps~. apply~ int_index_prove. 
@@ -133,6 +125,79 @@ Proof.
           intros. xapp~. 2: {
             rewrite H12. 
             specialize (H7 (i-1)). destruct H7 as [_ H7]. 
-            math. xchange H7. hsimpl. admit. 
+            math. xchange H7. hsimpl.
           }
-Admitted. 
+          {
+            specialize (H7 (i-1)). destruct H7 as [H7 _]. math. 
+            rewrite index_eq_inbound in H7. apply~ int_index_prove. 
+          }
+          intros. xapp~. 
+          rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+          intros. xapp~. 2: {
+            rewrite H14. hsimpl. 
+          }
+          {
+            specialize (H7 i). destruct H7 as [H7 _]. math. 
+            rewrite index_eq_inbound in H7. apply~ int_index_prove. 
+          }
+          hsimpl. split; auto. 
+        }
+        xapp~. 
+        rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+        intros. xapp~. 2: {
+          rewrite H12. hsimpl. 
+        }
+        {
+          specialize (H7 i). destruct H7 as [H7 _]. math. 
+          rewrite index_eq_inbound in H7. apply~ int_index_prove. 
+        }
+        intros. xapp~. 
+        rewrite index_eq_inbound in H6. apply~ int_index_prove. 
+        intros. xapp~. 2: {
+          rewrite H12. rewrite H14. hsimpl. 
+        }
+        {
+          specialize (H7 i). destruct H7 as [H7 _]. math. 
+          rewrite index_eq_inbound in H7. apply~ int_index_prove. 
+        }
+        hsimpl. split; auto. 
+      }
+    } 
+    hsimpl. split; auto. destruct H4 as [H4 _]. assumption. 
+    apply H4. hsimpl. apply H6. 
+    (* match goal with |- cumul _ _ (fun _ => ?x) <= _ => ring_simplify x end.  *)
+    reflexivity. 
+  }
+  hsimpl_credits. split. rewrite H2. apply index_make. 
+  apply~ int_index_prove. intros. split. admit. admit. 
+  match goal with |- cumul _ _ (fun _ => ?x) <= _ => ring_simplify x end. 
+  rewrite H. rewrite H0. 
+  sets n1: (length l1). sets m1: (length l2). reflexivity. 
+  xpull. intros. xapp~. destruct H3 as [H3 H4]. assumption. 
+  intros. xapp~. 2: {
+    destruct H3 as [H3 H5]. specialize (H5 n). 
+    destruct H5. math. rewrite H4. xchange H6. hsimpl. 
+  }
+  {
+    destruct H3 as [H3 H5]. specialize (H5 n). 
+    apply H5. math. 
+  }
+  intros. xapp~. hsimpl. 
+  cleanup_cost. 
+  assert (index x[i1])
+  instantiate (x := x). 
+  3: {
+    xpull. intros. xapp~. destruct H3 as [H3 _]. assumption. 
+    intros. xapp~. 2: {
+      rewrite H4. destruct H3 as [_ H3]. specialize (H3 n). 
+      destruct H3. math. xchange H5. hsimpl. 
+    }
+    {
+      destruct H3 as [_ H3]. specialize (H3 n). 
+      destruct H3. math. assumption. 
+    }
+    intros. xapp~. hsimpl. 
+  }admit. 
+  rewrite H. rewrite H0. 
+  match goal with |- cumul _ _ (fun _ => ?x) <= _ => ring_simplify x end. 
+Qed. 

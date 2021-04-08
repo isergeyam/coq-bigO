@@ -62,9 +62,17 @@ Proof.
   xfor_inv (fun (i:int) => 
     Hexists (x0 : list (array (list int)))
     (x1 : list (list (list int))),
-    p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
+    p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* x0__ ~> Array x \*
     \[index x0 n /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] m /\ 
-    (\[] ==> (x0[i1] ~> Array x1[i1]))]).  
+    (\[] ==> x0[i1] ~> Array x1[i1])]).  
+    3: {
+  hsimpl_credits. split. rewrite H2. apply index_make. 
+  apply~ int_index_prove. intros. split. remember (make (n+1) x) as x0_. 
+  assert (index x0_[i1] m). rewrite Heqx0_. rewrite read_make. 
+  rewrite H1. apply index_make. apply~ int_index_prove. apply~ int_index_prove. 
+  rewrite Heqx0_ in H4. apply H4. rewrite read_make. rewrite H2. rewrite read_make. 
+  hsimpl. admit. apply~ int_index_prove. apply~ int_index_prove. 
+    }
   math. intros. 
   {
     xpull. intros. 
@@ -72,7 +80,7 @@ Proof.
   xfor_inv (fun (i:int) => 
     Hexists (x0 : list (array (list int)))
     (x1 : list (list (list int))),
-    p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* 
+    p1 ~> Array l1 \* p2 ~> Array l2 \* c ~> Array x0 \* x0__ ~> Array x \* 
     \[index x0 n /\ forall i1 : int, 0 <= i1 <= n -> index x1[i1] m /\ 
     (\[] ==> (x0[i1] ~> Array x1[i1]))]).  
     math. intros. {
@@ -168,11 +176,12 @@ Proof.
     (* match goal with |- cumul _ _ (fun _ => ?x) <= _ => ring_simplify x end.  *)
     reflexivity. 
   }
-  hsimpl_credits. split. rewrite H2. apply index_make. 
+  reflexivity. 
+  (* xpull. hsimpl_credits. split. rewrite H2. apply index_make. 
   apply~ int_index_prove. intros. split. admit. admit. 
   match goal with |- cumul _ _ (fun _ => ?x) <= _ => ring_simplify x end. 
   rewrite H. rewrite H0. 
-  sets n1: (length l1). sets m1: (length l2). reflexivity. 
+  sets n1: (length l1). sets m1: (length l2). reflexivity.  *)
   xpull. intros. xapp~. destruct H3 as [H3 H4]. assumption. 
   intros. xapp~. 2: {
     destruct H3 as [H3 H5]. specialize (H5 n). 
@@ -184,4 +193,38 @@ Proof.
   }
   intros. xapp~. 
   cleanup_cost. 
+  { equates 1; swap 1 2.
+    { instantiate (1 := (fun '(x, y) => _)). apply fun_ext_1. intros [x y].
+      rewrite !cumul_const'. rew_cost. reflexivity. }
+    intros [x1 y1] [x2 y2] [H1 H2]. math_nia. }
+
+  apply_nary dominated_sum_distr_nary; swap 1 2.
+  dominated.
+
+  apply_nary dominated_sum_distr_nary.
+  { apply_nary dominated_sum_distr_nary. 
+    { apply dominated_transitive with (fun '(x, y) => 1 * y).
+      - (* TODO: improve using some setoid rewrite instances? *)
+        apply dominated_eq. intros [? ?]. math.
+      - apply_nary dominated_mul_nary; dominated. 
+    }
+    { apply dominated_transitive with (fun '(x, y) => x * 1).
+      - (* TODO: improve using some setoid rewrite instances? *)
+        apply dominated_eq. intros [? ?]. math.
+      - apply_nary dominated_mul_nary; dominated. 
+    }
+  }
+  { eapply dominated_transitive.
+    apply dominated_product_swap.
+    apply Product.dominated_big_sum_bound_with.
+    { apply filter_universe_alt. intros. rewrite~ <-cumul_nonneg. math_lia. }
+    { monotonic. }
+    { limit.  }
+    simpl. dominated.
+
+    now repeat apply_nary dominated_sum_distr_nary; dominated.
+    repeat apply_nary dominated_sum_distr_nary; dominated.
+    etransitivity. apply Product.dominated_big_sum_bound_with. 
+    intros. apply filter_universe_alt. math_lia. 
+    monotonic. limit. dominated. apply_nary dominated_sum_distr_nary; dominated. 
 Admitted. 

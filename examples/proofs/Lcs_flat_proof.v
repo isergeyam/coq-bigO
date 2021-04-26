@@ -191,4 +191,40 @@ Proof.
       hsimpl_credits. rewrite <- H5. apply length_update. 
     }
   }
-Admitted.
+  reflexivity. 
+  cleanup_cost. 
+  { equates 1; swap 1 2.
+    { instantiate (1 := (fun '(x, y) => _)). apply fun_ext_1. intros [x y].
+      rewrite !cumul_const'. rew_cost. reflexivity. }
+    intros [x1 y1] [x2 y2] [H1 H2]. math_nia. }
+  apply_nary dominated_sum_distr_nary; swap 1 2.
+  dominated. 
+  apply_nary dominated_sum_distr_nary.
+  apply_nary dominated_sum_distr_nary.
+  apply_nary dominated_sum_distr_nary.
+  dominated. 
+  { apply dominated_transitive with (fun '(x, y) => x * 1).
+    - (* TODO: improve using some setoid rewrite instances? *)
+      apply dominated_eq. intros [? ?]. math.
+    - apply_nary dominated_mul_nary; dominated. 
+  }
+  { apply dominated_transitive with (fun '(x, y) => 1 * y).
+    - (* TODO: improve using some setoid rewrite instances? *)
+      apply dominated_eq. intros [? ?]. math.
+    - apply_nary dominated_mul_nary; dominated. 
+  }
+
+  { eapply dominated_transitive.
+    apply dominated_product_swap.
+    apply Product.dominated_big_sum_bound_with.
+    { apply filter_universe_alt. intros. rewrite~ <-cumul_nonneg. math_lia. }
+    { monotonic. }
+    { limit.  }
+    simpl. dominated.
+
+    now repeat apply_nary dominated_sum_distr_nary; dominated.
+    repeat apply_nary dominated_sum_distr_nary; dominated.
+    etransitivity. apply Product.dominated_big_sum_bound_with. 
+    intros. apply filter_universe_alt. math_lia. 
+    monotonic. limit. dominated. apply_nary dominated_sum_distr_nary; dominated. } 
+Qed.

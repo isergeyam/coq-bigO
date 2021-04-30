@@ -31,6 +31,30 @@ Proof.
   intros. rewrite H. reflexivity. 
 Qed.
 
+
+Lemma take_plus_one: forall (i : nat) (l: list int), 
+  1 <= i <= length l -> take i l = take (i - 1) l & l[i-1]. 
+Proof.
+  intros. generalize dependent i. induction l. 
+  - intros. rewrite length_nil in H. auto_false~. 
+  - intros. rewrite take_cons_pos. destruct i. auto_false~. destruct i. 
+    rewrite take_zero. rewrite take_zero. rewrite app_nil_l. 
+    rewrite read_zero.  reflexivity. rewrite take_cons_pos. 
+    rewrite read_cons_case. case_if. auto_false~. rewrite last_cons. 
+    apply cons_injective. remember (S (S i) - 1) as i'. 
+    remember (to_nat i') as i''. 
+    assert (i' = i''). rewrite Heqi''. symmetry. apply to_nat_nonneg. math. 
+    rewrite H0. apply IHl. rewrite <- H0. subst. rewrite length_cons in H. math. 
+    math. math. 
+Qed.
+
+Lemma last_head: forall (l: list int), length l > 0 -> 
+  exists l' x, l = l' & x. 
+Proof.
+  intros. exists (take (length l - 1) l) l[(length l) - 1]. 
+  rewrite <- take_full_length at 1. apply take_plus_one. math. 
+Qed.
+
 Inductive SubSeq {A:Type} : list A -> list A -> Prop :=
  | SubNil (l:list A) : SubSeq nil l
  | SubCons1 (x:A) (l1 l2:list A) (H: SubSeq l1 l2) : SubSeq l1 (x::l2)
@@ -59,10 +83,22 @@ Proof.
   intros. my_invert H. reflexivity. 
 Qed.
 
-Lemma subseq_cons_l: forall A l1 l2 (x : A),  SubSeq (x :: l1) l2 -> 
+Lemma subseq_length: forall (l a: list int), SubSeq l a -> length l <= length a. 
+Proof.
+  intros l. induction l. 
+  - intros. rewrite length_nil. math. 
+  - intros. my_invert H. 
+    * apply subseq_cons in H0. apply IHl in H0. 
+      rewrite length_cons. rewrite length_cons. math. 
+    * apply IHl in H3. 
+      rewrite length_cons. rewrite length_cons. math. 
+Qed.
+
+Lemma subseq_cons_l: forall A l1 l2 (x : A),  SubSeq (x :: l1) l2 <-> 
   exists l2' l2'', l2 = l2' & x ++ l2'' /\ SubSeq l1 l2''. 
 Proof.
-  intros A l1. induction l1.  
+  split. generalize dependent x. generalize dependent l2. 
+  {induction l1.  
   - intros l2. induction l2. 
     + intros. my_invert H. 
     + intros. my_invert H. 
@@ -75,30 +111,30 @@ Proof.
       * apply IHl2 in H2. destruct H2 as [l2' [l2'' [H2 H3]]]. 
         exists (a0 :: l2') l2''. rewrite H2. auto. 
       * exists (@nil A) l2. auto. 
-Qed.
-
-Lemma subseq_app_r: forall A l1 l2 (x y : A), 
-  SubSeq (l1 & x) (l2 & y) -> SubSeq l1 l2. 
-Proof.
+  }
+  {
+    intros H. destruct H as [l2' [l2'' [H1 H2]]]. rewrite H1. generalize dependent l2. induction l2'. 
+    - intros. rewrite last_nil. apply SubCons2. auto. 
+    - intros. admit. 
+  }
 Admitted.
 
-Lemma subseq_app_inv: forall A l1 l2 (x : A), 
-  SubSeq l1 (l2 & x) -> SubSeq l1 l2 \/ exists l, l1 = l & x /\ SubSeq l l2. 
+Lemma subseq_app_r: forall l1 l2 (x y : int), 
+  SubSeq (l1 & x) (l2 & y) -> SubSeq l1 l2. 
 Proof.
-Admitted. 
-  (* intros. induction H. 
-  - left. constructor. 
-  - assumption. 
-  - 
-  intros A l1. induction l1. 
-  - left. constructor. 
-  - intros. apply subseq_cons_l in H. 
-  remember (l2 & x) as l2'. 
-  induction H. 
-  - left. apply SubNil. 
-  - assumption. 
-  - 
-Qed. *)
+  intros l1. 
+  induction l1. 
+  - constructor. 
+  - intros. rewrite last_cons in H. apply subseq_cons_l in H. 
+    destruct H as [l2' [l2'' [H1 H2]]]. rewrite subseq_cons_l. 
+    lets H3: subseq_length H2. rewrite length_last in H3. 
+    assert (length l2'' > 0) by math. 
+    lets H5: last_head l2'' H. destruct H5 as [l' [z H5]]. rewrite H5 in H1. 
+    rewrite H5 in H2. apply IHl1 in H2. exists l2' l'. split. 
+    assert (l2' & a ++ l' & z = (l2' & a ++ l') & z). rewrite last_app. admit. 
+    rewrite H0 in H1. apply last_eq_last_inv in H1. destruct H1 as [H1 _]. 
+    rewrite H1. admit. auto. 
+Admitted.
 
 Definition Lcs {A: Type} l l1 l2 :=
   SubSeq l l1 /\ SubSeq l l2 /\ 
@@ -119,17 +155,22 @@ Proof.
     intros l' [H4 H5]. specialize (H3 l'). apply H3. split; auto. 
 Qed.
 
-Lemma lcs_app_eq: forall A (l1 l2 l: list A) (x: A),
+Lemma lcs_app_eq: forall (l1 l2 l: list int) (x: int),
   Lcs l l1 l2 -> Lcs (l & x) (l1 & x) (l2 & x). 
 Proof.
   unfold Lcs. intros. destruct H as [H1 [H2 H3]]. split. 
-  - apply subseq_app. assumption. 
-  - split. 
-    + apply subseq_app. assumption. 
-    + intros. destruct l'. rewrite length_nil. math.
-    (* TODO *)
-     Admitted. 
-(* Qed. *)
+  apply subseq_app. assumption. split. 
+  apply subseq_app. assumption. 
+  intros. destruct l'. rewrite length_nil. math. 
+  remember (z :: l') as l''. 
+  assert (HM: length l'' > 0). rewrite Heql''. rewrite length_cons. math. 
+  lets M: last_head l'' HM. destruct M as [ll [y M]]. rewrite M. 
+  rewrite length_last. rewrite length_last. destruct H as [Hl1 Hl2]. 
+  rewrite M in Hl1. rewrite M in Hl2. 
+  apply subseq_app_r in Hl1. apply subseq_app_r in Hl2. 
+  assert (Hll: length ll <= length l) by auto. math. 
+Qed. 
+
 Lemma lcs_app_neq: forall A (l1 l2 l l': list A) (x y : A),
   x <> y -> Lcs l (l1&x) l2 -> Lcs l' l1 (l2&y) -> length l' <= length l ->
   Lcs l (l1&x) (l2&y). 
@@ -137,22 +178,6 @@ Proof.
   (* TODO *)
 Admitted.
 
-
-Lemma take_plus_one: forall (i : nat) (l: list int), 
-  1 <= i <= length l -> take i l = take (i - 1) l & l[i-1]. 
-Proof.
-  intros. generalize dependent i. induction l. 
-  - intros. rewrite length_nil in H. auto_false~. 
-  - intros. rewrite take_cons_pos. destruct i. auto_false~. destruct i. 
-    rewrite take_zero. rewrite take_zero. rewrite app_nil_l. 
-    rewrite read_zero.  reflexivity. rewrite take_cons_pos. 
-    rewrite read_cons_case. case_if. auto_false~. rewrite last_cons. 
-    apply cons_injective. remember (S (S i) - 1) as i'. 
-    remember (to_nat i') as i''. 
-    assert (i' = i''). rewrite Heqi''. symmetry. apply to_nat_nonneg. math. 
-    rewrite H0. apply IHl. rewrite <- H0. subst. rewrite length_cons in H. math. 
-    math. math. 
-Qed.
 
 
 Definition ZZle (p1 p2 : Z * Z) :=

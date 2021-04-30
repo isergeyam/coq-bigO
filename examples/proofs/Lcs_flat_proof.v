@@ -1,8 +1,6 @@
 Set Implicit Arguments.
 Require Import TLC.LibTactics.
-Require Import TLC.LibListSort.
 Require Import TLC.LibListZ.
-Require Import TLC.LibOrder. 
 (* Load the CFML library, with time credits. *)
 Require Import CFML.CFLibCredits.
 Require Pervasives_ml.
@@ -21,6 +19,8 @@ Require Import Generic.
 Require Import CFMLBigO.
 (* Load the CF definitions. *)
 Require Import Lcs_flat_ml.
+
+Open Scope liblist_scope.
 
 Local Ltac auto_tilde ::= try solve [ auto with maths | false; math ].
 
@@ -115,9 +115,12 @@ Proof.
   {
     intros H. destruct H as [l2' [l2'' [H1 H2]]]. rewrite H1. generalize dependent l2. induction l2'. 
     - intros. rewrite last_nil. apply SubCons2. auto. 
-    - intros. admit. 
-  }
-Admitted.
+    - intros. destruct l2. discriminate. 
+      assert ((a :: l2') & x ++ l2'' = a :: (l2' & x ++ l2'')). reflexivity. 
+      rewrite H in H1. injection H1 as H1. apply IHl2' in H0. rewrite H. 
+      apply SubCons1. auto. 
+  } 
+Qed.
 
 
 Lemma subseq_app_r: forall l1 l2 (x y : int), 
@@ -133,13 +136,11 @@ Proof.
     lets H5: last_head l2'' H. destruct H5 as [l' [z H5]]. rewrite H5 in H1. 
     rewrite H5 in H2. apply IHl1 in H2. exists l2' l'. split. 
     assert (l2' & a ++ l' & z = (l2' & a ++ l') & z). rewrite last_app. 
-    (* why reflexivity does not work? *)
-    admit. 
+    reflexivity. 
     rewrite H0 in H1. apply last_eq_last_inv in H1. destruct H1 as [H1 _]. 
     rewrite H1. 
-    (* why reflexivity does not work? *)
-    admit. auto. 
-Admitted.
+    reflexivity. auto. 
+Qed.
 
 Definition Lcs {A: Type} l l1 l2 :=
   SubSeq l l1 /\ SubSeq l l2 /\ 

@@ -119,6 +119,7 @@ Proof.
   }
 Admitted.
 
+
 Lemma subseq_app_r: forall l1 l2 (x y : int), 
   SubSeq (l1 & x) (l2 & y) -> SubSeq l1 l2. 
 Proof.
@@ -131,9 +132,13 @@ Proof.
     assert (length l2'' > 0) by math. 
     lets H5: last_head l2'' H. destruct H5 as [l' [z H5]]. rewrite H5 in H1. 
     rewrite H5 in H2. apply IHl1 in H2. exists l2' l'. split. 
-    assert (l2' & a ++ l' & z = (l2' & a ++ l') & z). rewrite last_app. admit. 
+    assert (l2' & a ++ l' & z = (l2' & a ++ l') & z). rewrite last_app. 
+    (* why reflexivity does not work? *)
+    admit. 
     rewrite H0 in H1. apply last_eq_last_inv in H1. destruct H1 as [H1 _]. 
-    rewrite H1. admit. auto. 
+    rewrite H1. 
+    (* why reflexivity does not work? *)
+    admit. auto. 
 Admitted.
 
 Definition Lcs {A: Type} l l1 l2 :=

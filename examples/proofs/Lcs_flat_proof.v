@@ -123,7 +123,7 @@ Proof.
 Qed.
 
 
-Lemma subseq_app_r: forall l1 l2 (x y : int), 
+Lemma subseq_last_head: forall l1 l2 (x y : int), 
   SubSeq (l1 & x) (l2 & y) -> SubSeq l1 l2. 
 Proof.
   intros l1. 
@@ -140,6 +140,48 @@ Proof.
     rewrite H0 in H1. apply last_eq_last_inv in H1. destruct H1 as [H1 _]. 
     rewrite H1. 
     reflexivity. auto. 
+Qed.
+
+Lemma subseq_app_r: forall (l l1 l2: list int), SubSeq l l1 -> SubSeq l (l1 ++ l2). 
+Proof.
+  intros l. induction l. 
+  - constructor. 
+  - intros. rewrite subseq_cons_l in H. rewrite subseq_cons_l. 
+    destruct H as [l2' [l2'' [H1 H2]]]. apply (IHl l2'' l2) in H2. 
+    exists l2' (l2'' ++ l2). split. rewrite H1. rew_list. reflexivity. auto. 
+Qed.
+
+Lemma subseq_last_case: forall l l1 (x : int), SubSeq l (l1 & x) ->
+  (SubSeq l l1) \/ (exists l', l = l' & x /\ (SubSeq l' l1)). 
+Proof.
+  intros l. induction l. 
+  - left. constructor. 
+  - intros. rewrite subseq_cons_l in H. 
+    destruct H as [l2' [l2'' [H1 H2]]]. destruct l2''. 
+    * apply subseq_nil in H2. rewrite app_nil_r in H1. subst. 
+      apply last_eq_last_inv in H1. right. exists (@nil int). 
+      destruct H1 as [H1 H2]. rewrite H2. split. rew_list. auto. constructor. 
+    * remember (z :: l2'') as ll. assert (length ll > 0). 
+      rewrite Heqll. rewrite length_cons. math. 
+      lets M: (last_head ll H). destruct M as [l' [y H3]]. rewrite H3 in H1. 
+      assert (l2' & a ++ l' & y = (l2' & a ++ l') & y). rewrite last_app. reflexivity. 
+      rewrite H0 in H1. apply last_eq_last_inv in H1. destruct H1 as [H1 H4]. 
+      rewrite H3 in H2. apply IHl in H2. destruct H2. 
+      + left. rewrite subseq_cons_l. exists l2' l'. split; auto. 
+      + destruct H2 as [l'0 [H2 H2']]. right. exists (a :: l'0). split. 
+        rewrite last_cons. f_equal. rewrite H4. auto. rewrite subseq_cons_l. 
+        exists l2' l'. split; auto. 
+Qed.
+
+Lemma subseq_last_neq: forall l l1 l2 (x y : int), x <> y -> SubSeq l (l1 & x) -> 
+  SubSeq l (l2 & y) -> (SubSeq l l1) \/ (SubSeq l l2). 
+Proof.
+  intros. apply subseq_last_case in H0. destruct H0. 
+  - left. auto. 
+  - destruct H0 as [l' [H01 H02]]. apply subseq_last_case in H1. destruct H1. 
+    + right. auto. 
+    + destruct H0 as [l'' [H11 H12]]. rewrite H01 in H11. 
+      apply last_eq_last_inv in H11. destruct H11 as [H1 H2]. auto_false. 
 Qed.
 
 Definition Lcs {A: Type} l l1 l2 :=
@@ -173,16 +215,25 @@ Proof.
   lets M: last_head l'' HM. destruct M as [ll [y M]]. rewrite M. 
   rewrite length_last. rewrite length_last. destruct H as [Hl1 Hl2]. 
   rewrite M in Hl1. rewrite M in Hl2. 
-  apply subseq_app_r in Hl1. apply subseq_app_r in Hl2. 
+  apply subseq_last_head in Hl1. apply subseq_last_head in Hl2. 
   assert (Hll: length ll <= length l) by auto. math. 
 Qed. 
 
-Lemma lcs_app_neq: forall A (l1 l2 l l': list A) (x y : A),
+Lemma lcs_app_neq: forall (l1 l2 l l': list int) (x y : int),
   x <> y -> Lcs l (l1&x) l2 -> Lcs l' l1 (l2&y) -> length l' <= length l ->
   Lcs l (l1&x) (l2&y). 
 Proof.
-  (* TODO *)
-Admitted.
+  unfold Lcs. intros. destruct H0 as [Hl_1 [Hl_2 Hl_3]]. 
+  destruct H1 as [Hl'_1 [Hl'_2 Hl'_3]]. 
+  split. auto. split. apply subseq_app_r. auto. 
+  intros. destruct H0 as [H01 H02]. 
+  assert (H' := H01). 
+  eapply subseq_last_neq in H01. 
+  3: {apply H02. } 2: {auto. } destruct H01. 
+  - apply Hl_3. split; auto. 
+  - assert (length l'0 <= length l' -> length l'0 <= length l) by math. 
+    apply H1. apply Hl'_3. split; auto. 
+Qed.
 
 
 

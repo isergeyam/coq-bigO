@@ -242,7 +242,6 @@ Definition ZZle (p1 p2 : Z * Z) :=
   let (x2, y2) := p2 in
   1 <= x1 <= x2 /\ 0 <= y1 <= y2.
 
-(* ATTENTION: INCOMPLETE, WON'T COMPILE, SHOULD BE COMMENTED OUT *)
 Lemma lcs_spec:
   specO
     (product_filterType Z_filterType Z_filterType)

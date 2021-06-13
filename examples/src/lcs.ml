@@ -10,8 +10,6 @@ let lcs (a : int array) (b : int array) : int array =
       else if List.length c.(i-1).(j) > List.length c.(i).(j-1)
         then c.(i).(j) <- c.(i-1).(j)
         else c.(i).(j) <- c.(i).(j-1)
-        (* c.(i).(j) <- if List.length c.(i-1).(j) > List.length c.(i).(j-1) then c.(i-1).(j) else c.(i).(j-1) *)
-      (* longest c.(i-1).(j) c.(i).(j-1) *)
       done
     done; 
   Array.of_list c.(n).(m);;

@@ -271,8 +271,7 @@ Proof.
     \[forall i1 i2 : int, 0 <= i1 < i -> 0 <= i2 <= m -> 
         Lcs x'[i1*(m+1) + i2] (take i1 l1 ) (take i2 l2) ] \* 
     \[forall i', i*(m+1) <= i' < (n+1)*(m+1) ->
-        x'[i'] = nil ]
-    ). 
+        x'[i'] = nil ]). 
   { math_nia. }
   2: {
     hsimpl.
@@ -300,8 +299,7 @@ Proof.
         i1*(m+1) + i2 < i*(m+1) + j -> 
         Lcs x'[i1*(m+1) + i2] (take i1 l1 ) (take i2 l2) ] \*
     \[forall i', i*(m+1) + j <= i' < (n+1)*(m+1) ->
-        x'[i'] = nil ]
-    ). 
+        x'[i'] = nil ]). 
   { math_nia. }
   2: {
     hsimpl. 
@@ -343,7 +341,7 @@ Proof.
       remember (((i * (m + 1)) + i0)) as j. 
       remember x11__ as v. 
       assert ((x1[j:=v])[i'] = x1[i']). 
-      (* TODO: WHY THE HECK read_update_neq does not work??? *)
+      (* TODO: WHY doesn't read_update_neq work??? *)
       rewrite read_update_case. case_if; auto_false~. 
       apply~ int_index_prove. math_nia. 
       rewrite H16. apply H9. math_nia. 
@@ -427,7 +425,6 @@ Proof.
             rewrite H22. rewrite take_plus_one. rewrite <- H22. 
             rewrite H24. rewrite H25. 
             rewrite <- H10. rewrite <- H11. 
-            (* rewrite <- H11. rewrite C. rewrite H10. rewrite <- H10.  *)
             rewrite lcs_symm. 
             eapply lcs_app_neq. auto. rewrite H10. 
             rewrite <- H25. rewrite H22. rewrite <- take_plus_one. rewrite lcs_symm. 
@@ -478,7 +475,6 @@ Proof.
             rewrite H22. rewrite take_plus_one. rewrite <- H22. 
             rewrite H24. rewrite H25. 
             rewrite <- H10. rewrite <- H11. 
-            (* rewrite <- H11. rewrite C. rewrite H10. rewrite <- H10.  *)
             eapply lcs_app_neq. auto. rewrite H11. rewrite H21. rewrite <- take_plus_one. rewrite <- H21. 
             asserts_rewrite ((((i * (m + 1)%I)%I + i0)%I - 1)%I = ((i * (m + 1)%I)%I + (i0%I - 1)%I)). math. 
             apply H8; math.  math. 
